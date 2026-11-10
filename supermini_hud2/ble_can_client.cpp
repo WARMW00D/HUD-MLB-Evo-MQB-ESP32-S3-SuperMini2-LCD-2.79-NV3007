@@ -54,7 +54,13 @@ static const AclRule ACL[] = {
     { ACL_PERMIT,           200, 0x31E,      0x7FF      },  /* лимитер (CRC+BZ)        */
     { ACL_PERMIT,           100, 0x5F0,      0x7FF      },  /* Dimmung_01: яркость (колёсико — каждые ~60 мс) */
     { ACL_PERMIT,           100, 0x30F,      0x7FF      },  /* SWA_01: Side Assist (CRC — без ONCHANGE) */
-    /* Минимальный режим: КП, мигалки, двери, капот, pre sense и бортовой компьютер (0x394, 0x366, 0x583, 0x65A, 0x2A9, BAP_BC) не нужны */
+    { ACL_PERMIT,             0, 0x366,      0x7FF      },  /* Blinkmodi_02: поворотники */
+    { ACL_PERMIT,          1000, 0x583,      0x7FF      },  /* ZV_02: двери и багажник  */
+    { ACL_PERMIT,             0, 0x65A,      0x7FF      },  /* BCM_01: капот            */
+#if HUD_PLATFORM != HUD_PLATFORM_MQB
+    { ACL_PERMIT,           100, 0x2A9,      0x7FF      },  /* ACC_15: pre sense        */
+#endif
+    /* Минимальный режим: КП и бортовой компьютер (0x394, BAP_BC) не нужны */
     { ACL_PERMIT,           200, 0x5A0,      0x7FF      },  /* RLS_01: датчик света (яркость HUD)  */
 #if HUD_PLATFORM != HUD_PLATFORM_MQB
     { ACL_PERMIT,           100, 0x64F,      0x7FF      },  /* BCM1_04: колёсико подсветки         */

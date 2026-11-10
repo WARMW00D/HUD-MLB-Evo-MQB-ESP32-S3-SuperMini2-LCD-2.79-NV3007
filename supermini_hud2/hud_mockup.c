@@ -68,6 +68,11 @@ extern "C" {
 #define C_UNIT_SPEED 0x969696
 #define C_UNIT_SMALL 0xc8c8c8
 #define C_NAV_ARROW  0x30b0f0
+#define C_CAR_BODY   0xe6e6e6
+#define C_CAR_LIGHTS 0xc81414
+#define C_CAR_OPEN   0xeb1c1c
+#define C_BLINK_GRN  0x00cc00
+#define C_BLINK_RED  0xe00000
 
 /* ---------- раскладка панели 428x142 ---------- */
 #define CX_LEFT      73      /* ось расстояния до манёвра                         */
@@ -96,6 +101,9 @@ static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol[8];   /* mn_spd_ol — кра�
 static lv_obj_t *mn_sign, *mn_sign_lbl, *mn_sign_end, *mn_sign_car_l, *mn_sign_car_r;
 static lv_obj_t *mn_cam_sq, *mn_cam_disc, *mn_cam_lbl, *mn_cam_eye, *mn_cam_dist;
 static lv_obj_t *mn_acc_box, *mn_lane_l, *mn_lane_r, *mn_lead, *mn_arcs, *mn_own, *mn_swa_l, *mn_swa_r;
+static lv_obj_t *mn_car_box, *mn_car_part[6], *mn_car_under[6];   /* FL FR RL RR HOOD TRUNK — как биты DOOR_* */
+static lv_obj_t *mn_ps_box, *mn_ps_tri;
+static lv_obj_t *mn_bl_out[2], *mn_bl_fill[2];                        /* поворотники: [0] левый, [1] правый */
 static lv_obj_t *mn_set_num, *mn_set_unit, *mn_lim;
 static lv_obj_t *mn_link, *mn_pair;
 static lv_obj_t *ota_panel, *ota_title, *ota_status, *ota_bar_bg, *ota_bar_fill;
@@ -560,6 +568,40 @@ static void mn_build(lv_obj_t *scr)
     mn_dist_unit = mn_label(scr, &hud_font_munit20, C_UNIT_SMALL);
     mn_calc      = mn_label(scr, &hud_font_mdist, C_GRAY);
 
+    /* двери: машинка на месте стрелки (приоритет над навигацией) */
+    mn_car_box = lv_obj_create(scr);
+    lv_obj_remove_style_all(mn_car_box);
+    lv_obj_set_size(mn_car_box, M_CAR_W, M_CAR_H);
+    lv_obj_set_pos(mn_car_box, ARROW_X, ARROW_Y + 3);
+    lv_obj_clear_flag(mn_car_box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    car_img(mn_car_box, &img_m_car_body,   M_CAR_BODY_X,   M_CAR_BODY_Y,   C_CAR_BODY);
+    car_img(mn_car_box, &img_m_car_lights, M_CAR_LIGHTS_X, M_CAR_LIGHTS_Y, C_CAR_LIGHTS);
+    {
+        static const lv_img_dsc_t *under[6] = { &img_m_car_fl_under, &img_m_car_fr_under, &img_m_car_rl_under,
+                                                &img_m_car_rr_under, &img_m_car_hood_under, &img_m_car_trunk_under };
+        static const lv_img_dsc_t *part[6]  = { &img_m_car_fl, &img_m_car_fr, &img_m_car_rl,
+                                                &img_m_car_rr, &img_m_car_hood, &img_m_car_trunk };
+        static const int16_t ux[6] = { M_CAR_FL_UNDER_X, M_CAR_FR_UNDER_X, M_CAR_RL_UNDER_X, M_CAR_RR_UNDER_X, M_CAR_HOOD_UNDER_X, M_CAR_TRUNK_UNDER_X };
+        static const int16_t uy[6] = { M_CAR_FL_UNDER_Y, M_CAR_FR_UNDER_Y, M_CAR_RL_UNDER_Y, M_CAR_RR_UNDER_Y, M_CAR_HOOD_UNDER_Y, M_CAR_TRUNK_UNDER_Y };
+        static const int16_t px[6] = { M_CAR_FL_X, M_CAR_FR_X, M_CAR_RL_X, M_CAR_RR_X, M_CAR_HOOD_X, M_CAR_TRUNK_X };
+        static const int16_t py[6] = { M_CAR_FL_Y, M_CAR_FR_Y, M_CAR_RL_Y, M_CAR_RR_Y, M_CAR_HOOD_Y, M_CAR_TRUNK_Y };
+        for (int i = 0; i < 6; i++) {
+            mn_car_under[i] = mn_img(mn_car_box, under[i], ux[i], uy[i], 0x000000);
+            mn_car_part[i]  = mn_img(mn_car_box, part[i],  px[i], py[i], C_CAR_OPEN);
+        }
+    }
+    lv_obj_add_flag(mn_car_box, LV_OBJ_FLAG_HIDDEN);
+
+    /* pre sense: красный треугольник + надпись, поверх машинки и стрелки */
+    mn_ps_box = lv_obj_create(scr);
+    lv_obj_remove_style_all(mn_ps_box);
+    lv_obj_set_size(mn_ps_box, M_CAR_W, M_CAR_H);
+    lv_obj_set_pos(mn_ps_box, ARROW_X, ARROW_Y + 3);
+    lv_obj_clear_flag(mn_ps_box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    mn_ps_tri = car_img(mn_ps_box, &img_m_presense_tri, M_PRESENSE_TRI_X, M_PRESENSE_TRI_Y, 0xe01414);
+    car_img(mn_ps_box, &img_m_presense_txt, M_PRESENSE_TXT_X, M_PRESENSE_TXT_Y, 0xffffff);
+    lv_obj_add_flag(mn_ps_box, LV_OBJ_FLAG_HIDDEN);
+
     /* центр: скорость (красная обводка — 8 копий под белыми цифрами) */
     for (int i = 0; i < 8; i++) mn_spd_ol[i] = mn_label(scr, &hud_font_mspeed, C_OVERSPEED);
     mn_spd      = mn_label(scr, &hud_font_mspeed, 0xffffff);
@@ -628,6 +670,17 @@ static void mn_build(lv_obj_t *scr)
     mn_set_num  = mn_label(scr, &hud_font_mdist, 0xffffff);
     mn_set_unit = mn_label(scr, &hud_font_munit20, C_UNIT_SMALL);
     mn_lim = mn_img(scr, &img_m_lim, CX_RIGHT - M_LIM_W / 2, 60, 0xffffff);
+
+    /* поворотники: нижние углы, поверх остального; чёрная обводка + заливка (зелёная / красная при аварийке) */
+    {
+        static const lv_img_dsc_t *bo[2] = { &img_m_blink_l_outline, &img_m_blink_r_outline };
+        static const lv_img_dsc_t *bf[2] = { &img_m_blink_l_fill,    &img_m_blink_r_fill };
+        const int bx[2] = { 2, HUD_PANEL_W - M_BLINK_W - 2 };
+        for (int i = 0; i < 2; i++) {
+            mn_bl_out[i]  = mn_img(scr, bo[i], bx[i], HUD_PANEL_H - M_BLINK_W, 0x000000);
+            mn_bl_fill[i] = mn_img(scr, bf[i], bx[i], HUD_PANEL_H - M_BLINK_W, C_BLINK_GRN);
+        }
+    }
 
     /* нет связи / сопряжение не удаётся */
     mn_link = mn_label(scr, LV_FONT_DEFAULT, 0x666666);
@@ -795,7 +848,23 @@ static void hud_update_cb(lv_timer_t *t)
 
     /* ====================== левая зона: стрелка и расстояние ====================== */
     {
-        bool nav = (d.valid & V_MAN) && d.rg_active == 1;
+        /* pre sense — главный приоритет в области стрелки: 2 предупреждение (горит),
+           3..6 острое / торможение / перехватите управление — мигает 4 раза в секунду */
+        bool ps = (d.valid & V_AWV) && d.awv_warn >= 2 && d.awv_warn <= 6;
+        if (ps) set_img_color(mn_ps_tri, (d.awv_warn >= 3 && (now % 250) < 125) ? 0x5a0000 : 0xe01414);
+        vis(mn_ps_box, ps);
+
+        /* двери / капот / багажник: машинка вместо стрелки */
+        uint8_t doors = 0;
+        if (d.valid & V_DOORS) doors |= d.doors & (DOOR_FL | DOOR_FR | DOOR_RL | DOOR_RR | DOOR_TRUNK);
+        if (d.valid & V_HOOD)  doors |= d.doors & DOOR_HOOD;
+        for (int i = 0; i < 6; i++) {
+            vis(mn_car_under[i], doors & (1u << i));
+            vis(mn_car_part[i],  doors & (1u << i));
+        }
+        vis(mn_car_box, doors != 0 && !ps);
+
+        bool nav = (d.valid & V_MAN) && d.rg_active == 1 && doors == 0 && !ps;
         const NavImg *ni = nav ? nav_pick(&nav_big, d.man_main, d.man_dir) : NULL;
         bool calc = (d.man_main == 0x09 || d.man_main == 0x0A);
         static const NavImg *last = NULL;
@@ -925,6 +994,18 @@ static void hud_update_cb(lv_timer_t *t)
         if (swa_w) { bool ph = (now % 400) < 200; tl = tl && ph; tr = tr && ph; }
         vis(mn_swa_l, tl);
         vis(mn_swa_r, tr);
+
+        /* поворотники: такт из 0x366, красные при аварийке */
+        {
+            bool bv  = d.valid & V_BLINK;
+            bool haz = bv && (d.blink & BLINK_HAZARD);
+            bool sl = bv && (d.blink & BLINK_L_TAKT), sr = bv && (d.blink & BLINK_R_TAKT);
+            uint32_t bcol = haz ? C_BLINK_RED : C_BLINK_GRN;
+            set_img_color(mn_bl_fill[0], bcol);
+            set_img_color(mn_bl_fill[1], bcol);
+            vis(mn_bl_out[0], sl); vis(mn_bl_fill[0], sl);
+            vis(mn_bl_out[1], sr); vis(mn_bl_fill[1], sr);
+        }
 
         /* заданная скорость ACC / лимитера под иконкой */
         bool lim_num = lim_on && lim_set;
