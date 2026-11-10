@@ -83,7 +83,7 @@ extern "C" {
 #define ARROW_Y      18
 #define DIST_BASE    141     /* базовая линия расстояния до манёвра / заданной скорости */
 #define SPD_BASE     75      /* базовая линия скорости                             */
-#define SPD3_RIGHT   296     /* 3 цифры: правый край чернил; «км/ч» — справа сверху */
+#define SPD3_RIGHT   305     /* 3 цифры: правый край чернил; «км/ч» — справа сверху */
 #define SIGN_D       60      /* знак / квадрат камеры                              */
 #define SIGN_RING    6
 #define SIGN_Y       (HUD_PANEL_H - SIGN_D)
