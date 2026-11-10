@@ -77,7 +77,8 @@ extern "C" {
 /* ---------- раскладка панели 428x142 ---------- */
 #define CX_LEFT      73      /* ось расстояния до манёвра                         */
 #define CX_CENTER    195     /* ось скорости (1-2 цифры) и знака                   */
-#define CX_RIGHT     353     /* ось иконки ACC и заданной скорости                 */
+#define CX_RIGHT     370     /* ось иконки ACC: иконка (116 px) упирается в правый край панели */
+#define CX_SET       359     /* ось заданной скорости: «200 км/ч» целиком влезает у правого края */
 #define ARROW_X      2       /* кадр стрелки 142x96                                */
 #define ARROW_Y      18
 #define DIST_BASE    141     /* базовая линия расстояния до манёвра / заданной скорости */
@@ -1017,7 +1018,7 @@ static void hud_update_cb(lv_timer_t *t)
             snprintf(buf, sizeof buf, "%u", spd((raw * 32u + 50u) / 100u));
             bool dim = acc_num && d.acc_status == 2;
             int left;
-            int w = mn_digits(mn_set_num, &hud_font_mdist, buf, CX_RIGHT, DIST_BASE, &left);
+            int w = mn_digits(mn_set_num, &hud_font_mdist, buf, CX_SET, DIST_BASE, &left);
             set_text_color(mn_set_num, dim ? 0x828282 : 0xffffff);
             set_text_color(mn_set_unit, dim ? 0x6e6e6e : C_UNIT_SMALL);
             mn_text_at(mn_set_unit, &hud_font_munit20, g_units == HUD_UNITS_MI ? "mph" : tx->kmh, left + w + 5, DIST_BASE);
