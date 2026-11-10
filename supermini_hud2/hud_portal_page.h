@@ -54,9 +54,11 @@ async function st(){try{const s=await(await fetch('/api/state')).json();$('ver')
  if(!st.f){fill(s);st.f=1;L=s.lang?'en':'ru';i18n()}}catch(e){$('left').textContent=tr('closed')}}
 function tick(){if(left>0&&!up_busy)left--;const m=Math.floor(left/60),s=left%60;if(left>0)$('left').textContent=m+':'+String(s).padStart(2,'0')}
 async function save(){const b=new URLSearchParams();F.forEach(k=>b.set(k,$(k).checked?1:0));N.forEach(k=>b.set(k,$(k).value));
- const r=await fetch('/api/set',{method:'POST',body:b});$('smsg').className='msg '+(r.ok?'ok':'er');$('smsg').textContent=tr(r.ok?'saved':'fail');
- if(r.ok&&$('lang').value!=(L=='en'?1:0)){L=$('lang').value==1?'en':'ru';i18n()}}
-async function cal(p){const r=await fetch('/api/cal?p='+p,{method:'POST'});$('smsg').className='msg '+(r.ok?'ok':'er');$('smsg').textContent=tr(r.ok?'saved':'fail');st()}
+ let s={};try{const r=await fetch('/api/set',{method:'POST',body:b});s=await r.json()}catch(e){}
+ $('smsg').className='msg '+(s.ok?'ok':'er');$('smsg').textContent=tr(s.ok?'saved':'fail');
+ if(s.ok){fill(s);L=s.lang==1?'en':'ru';i18n()}}
+async function cal(p){let s={};try{s=await(await fetch('/api/cal?p='+p,{method:'POST'})).json()}catch(e){}
+ $('smsg').className='msg '+(s.ok?'ok':'er');$('smsg').textContent=tr(s.ok?'saved':'fail');if(s.ok)$('mv').textContent=s.mv}
 function up(path,id){const f=$(id).files[0];if(!f)return;const k=path=='cams'?'c':'f',p=$('p'+k),m=$('m'+k);p.hidden=false;p.value=0;m.textContent='';up_busy=true;
  const fd=new FormData();fd.append('file',f,f.name);const x=new XMLHttpRequest();x.open('POST','/'+path+'?size='+f.size);
  x.upload.onprogress=e=>{if(e.lengthComputable)p.value=100*e.loaded/e.total};

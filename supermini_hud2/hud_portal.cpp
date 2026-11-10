@@ -4,7 +4,7 @@
   * Точка доступа HUD_PORTAL_SSID (WPA2, пароль HUD_PORTAL_PASS), адрес http://192.168.4.1/ (DNS отвечает всем именам).
   * Работает HUD_PORTAL_MS после включения, затем Wi-Fi выключается совсем (BLE-клиент сниффера продолжает работать).
     Пока идёт загрузка файла, портал не закрывается.
-  * Мощность передатчика ограничена HUD_PORTAL_TX_QDBM (единицы 0.25 дБм, не больше 40 = 10 дБм; реальный уровень железа 8.5 дБм).
+  * Мощность передатчика ограничена HUD_PORTAL_TX_QDBM (единицы 0.25 дБм; 40 = 10 дБм).
   * Страницы: / (настройки), /api/state, /api/set, /api/cal, /update (OTA прошивки), /cams (cams.bin).
 */
 #include <Arduino.h>
@@ -20,6 +20,7 @@
 #include "hud_mockup.h"
 #include "hud_cams.h"
 #include "hud_light.h"
+#include "hud_sound.h"
 #include "hud_settings.h"
 #include "hud_portal.h"
 #include "hud_portal_page.h"
@@ -184,17 +185,25 @@ static uint32_t seconds_left()
     const uint32_t now = millis();
     return (int32_t)(deadline - now) > 0 ? (deadline - now) / 1000 : 0;
 }
-static void api_state()
+/* Состояние читаем у самого HUD (hud_get_*): то, что реально использует экран. */
+static String state_json(bool ok)
 {
-    const HudSettings s = hud_settings_get();
     String j; j.reserve(300);
-    j += "{\"ver\":\"" HUD_FW_VERSION_STRING "\",\"left\":"; j += seconds_left();
-    j += ",\"psd\":"; j += s.psd; j += ",\"vze\":"; j += s.vze; j += ",\"lang\":"; j += s.lang; j += ",\"units\":"; j += s.units;
-    j += ",\"tol\":"; j += s.tol; j += ",\"cams\":"; j += s.cams; j += ",\"cam_beep\":"; j += s.cam_beep;
-    j += ",\"volume\":"; j += s.volume; j += ",\"ldr\":"; j += s.ldr;
-    j += ",\"mv\":"; j += hud_light_mv(); j += "}";
-    server.send(200, "application/json", j);
+    j += "{\"ok\":"; j += ok ? "true" : "false";
+    j += ",\"ver\":\"" HUD_FW_VERSION_STRING "\",\"left\":"; j += seconds_left();
+    j += ",\"psd\":"; j += hud_get_psd() ? 1 : 0; j += ",\"vze\":"; j += hud_get_vze() ? 1 : 0;
+    j += ",\"lang\":"; j += hud_get_lang(); j += ",\"units\":"; j += hud_get_units();
+    j += ",\"tol\":"; j += hud_get_overspeed_tol(); j += ",\"cams\":"; j += hud_get_cams() ? 1 : 0;
+    j += ",\"cam_beep\":"; j += hud_get_cam_beep() ? 1 : 0; j += ",\"volume\":"; j += hud_sound_volume();
+    j += ",\"ldr\":"; j += hud_light_enabled() ? 1 : 0; j += ",\"mv\":"; j += hud_light_mv(); j += "}";
+    return j;
 }
+static void send_json(int code, const String &j)
+{
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(code, "application/json", j);
+}
+static void api_state() { send_json(200, state_json(true)); }
 static bool arg_u8(const char *k, uint8_t &out, uint8_t max)
 {
     if (!server.hasArg(k)) return true;                 /* поле не передано — оставить как есть */
@@ -208,17 +217,22 @@ static bool arg_u8(const char *k, uint8_t &out, uint8_t max)
 static void api_set()
 {
     HudSettings s = hud_settings_get();
+    Serial.printf("[portal] POST /api/set, аргументов: %d\n", server.args());
+    for (int i = 0; i < server.args(); ++i) Serial.printf("[portal]   %s=%s\n", server.argName(i).c_str(), server.arg(i).c_str());
     const bool ok = arg_u8("psd", s.psd, 1) && arg_u8("vze", s.vze, 1) && arg_u8("lang", s.lang, 1) &&
                     arg_u8("units", s.units, 1) && arg_u8("tol", s.tol, 100) && arg_u8("cams", s.cams, 1) &&
                     arg_u8("cam_beep", s.cam_beep, 1) && arg_u8("volume", s.volume, 100) && arg_u8("ldr", s.ldr, 1) &&
                     hud_settings_set(s);
-    server.send(ok ? 200 : 400, "application/json", ok ? "{\"ok\":true}" : "{\"ok\":false}");
+    Serial.printf("[portal] set -> %s; HUD сейчас: lang=%u units=%u psd=%d vze=%d tol=%u cams=%d beep=%d vol=%u ldr=%d\n", ok ? "ok" : "ОШИБКА",
+                  hud_get_lang(), hud_get_units(), hud_get_psd(), hud_get_vze(), hud_get_overspeed_tol(), hud_get_cams(), hud_get_cam_beep(),
+                  hud_sound_volume(), hud_light_enabled());
+    send_json(ok ? 200 : 400, state_json(ok));
 }
 static void api_cal()
 {
     const String p = server.arg("p");
     const bool ok = (p == "dark" || p == "bright") && hud_settings_calibrate(p == "bright");
-    server.send(ok ? 200 : 400, "application/json", ok ? "{\"ok\":true}" : "{\"ok\":false}");
+    send_json(ok ? 200 : 400, state_json(ok));
 }
 
 /* ----- жизненный цикл ----- */
@@ -254,7 +268,7 @@ void hud_portal_begin(void)
     server.onNotFound([] { server.sendHeader("Location", "http://192.168.4.1/"); server.send(302, "text/plain", ""); });
     server.begin();
     deadline = millis() + HUD_PORTAL_MS; active = true;
-    Serial.printf("[portal] SSID %s, http://%s/, TX лимит %.2f дБм (<=10), закроется через %u с\n", HUD_PORTAL_SSID,
+    Serial.printf("[portal] SSID %s, http://%s/, TX %.2f дБм, закроется через %u с\n", HUD_PORTAL_SSID,
                   WiFi.softAPIP().toString().c_str(), p * 0.25f, (unsigned)(HUD_PORTAL_MS / 1000));
 }
 void hud_portal_poll(void)
