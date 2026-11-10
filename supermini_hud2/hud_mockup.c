@@ -33,7 +33,7 @@
 #include "hud_sound.h"
 #include "src/lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 
-LV_FONT_DECLARE(hud_font_mspeed);   /* скорость: Overpass Medium, цифры 65 px, сжато по ширине   */
+LV_FONT_DECLARE(hud_font_mspeed);   /* скорость: Overpass Medium, цифры 74 px, сжато по ширине   */
 LV_FONT_DECLARE(hud_font_mdist);    /* расстояние до манёвра, заданная скорость ACC: цифры 25 px */
 LV_FONT_DECLARE(hud_font_munit22);  /* «км/ч» рядом со скоростью                                 */
 LV_FONT_DECLARE(hud_font_munit20);  /* единицы у расстояния и заданной скорости                  */
@@ -82,8 +82,8 @@ extern "C" {
 #define ARROW_X      2       /* кадр стрелки 142x96                                */
 #define ARROW_Y      18
 #define DIST_BASE    141     /* базовая линия расстояния до манёвра / заданной скорости */
-#define SPD_BASE     66      /* базовая линия скорости                             */
-#define SPD3_RIGHT   287     /* 3 цифры: правый край чернил; «км/ч» — справа сверху */
+#define SPD_BASE     75      /* базовая линия скорости                             */
+#define SPD3_RIGHT   292     /* 3 цифры: правый край чернил; «км/ч» — справа сверху */
 #define SIGN_D       60      /* знак / квадрат камеры                              */
 #define SIGN_RING    6
 #define SIGN_Y       (HUD_PANEL_H - SIGN_D)

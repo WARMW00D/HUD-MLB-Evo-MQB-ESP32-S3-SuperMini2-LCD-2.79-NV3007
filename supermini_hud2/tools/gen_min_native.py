@@ -217,7 +217,7 @@ OVER = os.path.join(FD, "Overpass-Medium.ttf"); OVER_SQ = os.path.join(FD, "Over
 COND = os.path.join(FD, "RobotoCondensed-Bold.ttf")
 INTER_R = os.path.join(FD, "Inter-Regular-sub.otf"); INTER_B = os.path.join(FD, "Inter-Bold-sub.otf")
 FONTS = [
-    ("hud_font_mspeed", ("dh", 65), "0123456789", OVER_SQ),
+    ("hud_font_mspeed", ("dh", 74), "0123456789", OVER_SQ),
     ("hud_font_mdist", ("dh", 25), "0123456789.,", OVER_SQ),
     ("hud_font_munit22", 16, "кмч/khpim ", INTER_R),
     ("hud_font_munit20", 15, "кмч/khpimft ", INTER_R),
