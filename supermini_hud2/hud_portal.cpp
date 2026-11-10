@@ -249,6 +249,19 @@ void hud_portal_begin(void)
 {
     WiFi.persistent(false);
     WiFi.mode(WIFI_AP);
+    /* журнал подключений: видно, дошёл ли клиент до ассоциации и выдан ли ему IP (DHCP) */
+    WiFi.onEvent([](arduino_event_id_t ev, arduino_event_info_t info) {
+        if (ev == ARDUINO_EVENT_WIFI_AP_STACONNECTED) {
+            const uint8_t *m = info.wifi_ap_staconnected.mac;
+            Serial.printf("[portal] клиент подключился %02X:%02X:%02X:%02X:%02X:%02X\n", m[0], m[1], m[2], m[3], m[4], m[5]);
+        } else if (ev == ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED) {
+            Serial.printf("[portal] клиенту выдан IP %s\n", IPAddress(info.wifi_ap_staipassigned.ip.addr).toString().c_str());
+        } else if (ev == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED) {
+            Serial.println("[portal] клиент отключился");
+        }
+    });
+    /* адрес и DHCP задаём явно: 192.168.4.1/24, клиентам выдаются 192.168.4.2... */
+    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
     if (!WiFi.softAP(HUD_PORTAL_SSID, HUD_PORTAL_PASS, HUD_PORTAL_CHANNEL, 0, HUD_PORTAL_MAX_CLIENTS)) {
         Serial.println("[portal] не удалось поднять точку доступа"); WiFi.mode(WIFI_OFF); return;
     }
