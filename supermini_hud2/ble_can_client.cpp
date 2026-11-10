@@ -210,6 +210,17 @@ static void ble_task(void *)
     uint32_t last_stat = 0;
 
     for (;;) {
+        /* Wi-Fi портал: клиент подключён — BLE молчит (не сканирует и не держит соединение) */
+        if (hud_ble_paused()) {
+            if (client->isConnected()) {
+                if (HUD_LOG_BLE) hud_log_write("[BLE] пауза: к порталу подключён клиент Wi-Fi\n");
+                client->disconnect();
+            }
+            NimBLEDevice::getScan()->stop();
+            hud_src_set_up(HUD_SRC_ID_BLE, false);
+            vTaskDelay(pdMS_TO_TICKS(300));
+            continue;
+        }
 #if HUD_DATA_SOURCE == HUD_SRC_AUTO
         /* AUTO: пока идёт CAN со своего трансивера — BLE не нужен */
         if (hud_src_twai_active()) {

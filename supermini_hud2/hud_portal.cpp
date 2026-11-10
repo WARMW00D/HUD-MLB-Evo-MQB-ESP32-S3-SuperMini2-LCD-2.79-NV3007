@@ -24,9 +24,13 @@
 #include "hud_settings.h"
 #include "hud_portal.h"
 #include "hud_data.h"
+#include "hud_ble_core.h"
 #include "hud_portal_page.h"
 
 /* значение по умолчанию, если в user_config.h ещё нет (старая копия файла) */
+#ifndef HUD_PORTAL_BLE_RESUME_MS
+#define HUD_PORTAL_BLE_RESUME_MS 20000u   /* клиентов нет дольше этого времени — BLE снова работает */
+#endif
 #ifndef HUD_PORTAL_MOVE_MS
 #define HUD_PORTAL_MOVE_MS 1000u
 #endif
@@ -248,6 +252,7 @@ static void stop_portal()
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
     active = false;
+    hud_ble_pause(false);
     Serial.println("[portal] Wi-Fi выключен");
 }
 void hud_portal_begin(void)
@@ -258,6 +263,7 @@ void hud_portal_begin(void)
     WiFi.onEvent([](arduino_event_id_t ev, arduino_event_info_t info) {
         if (ev == ARDUINO_EVENT_WIFI_AP_STACONNECTED) {
             const uint8_t *m = info.wifi_ap_staconnected.mac;
+            hud_ble_pause(true);   /* радио — только Wi-Fi, пока клиент на портале */
             Serial.printf("[portal] клиент подключился %02X:%02X:%02X:%02X:%02X:%02X\n", m[0], m[1], m[2], m[3], m[4], m[5]);
         } else if (ev == ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED) {
             Serial.printf("[portal] клиенту выдан IP %s\n", IPAddress(info.wifi_ap_staipassigned.ip.addr).toString().c_str());
@@ -302,6 +308,13 @@ void hud_portal_poll(void)
     if (!active) return;
     dns.processNextRequest();
     server.handleClient();
+    /* BLE молчит, пока на портале есть клиент; освобождается через HUD_PORTAL_BLE_RESUME_MS после ухода последнего */
+    {
+        static uint32_t last_client = 0;
+        const uint32_t now = millis();
+        if (WiFi.softAPgetStationNum() > 0) { last_client = now ? now : 1; hud_ble_pause(true); }
+        else if (hud_ble_paused() && (uint32_t)(now - last_client) >= HUD_PORTAL_BLE_RESUME_MS) hud_ble_pause(false);
+    }
     /* машина тронулась — Wi-Fi выключается совсем (скорость > 0 дольше HUD_PORTAL_MOVE_MS);
        без CAN-данных о скорости (V_SPEED не выставлен) портал живёт до конца срока */
     {
