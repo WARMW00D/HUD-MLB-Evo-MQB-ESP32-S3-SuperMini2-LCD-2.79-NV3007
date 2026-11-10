@@ -26,6 +26,11 @@
 #include "hud_data.h"
 #include "hud_portal_page.h"
 
+/* значение по умолчанию, если в user_config.h ещё нет (старая копия файла) */
+#ifndef HUD_PORTAL_MOVE_MS
+#define HUD_PORTAL_MOVE_MS 1000u
+#endif
+
 static_assert(HUD_PORTAL_TX_QDBM > 0 && HUD_PORTAL_TX_QDBM <= 40, "Мощность Wi-Fi: не выше 10 дБм (40 единиц по 0.25 дБм).");
 static_assert(sizeof(HUD_PORTAL_PASS) > 8, "Пароль точки доступа: минимум 8 символов.");
 
