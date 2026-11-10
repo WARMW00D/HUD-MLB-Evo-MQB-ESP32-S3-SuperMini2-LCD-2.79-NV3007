@@ -725,12 +725,11 @@ static void mn_speed(const HudData *d, int ov_opa)
         vis(mn_spd_ol[i], ov_opa > 0);
     }
     const char *u = g_units == HUD_UNITS_MI ? "mph" : tx->kmh;
-    if (d3) {
-        /* 3 цифры: единица справа от цифр, верх чернил на уровне верха цифр */
+    /* единица всегда справа от цифр, верх чернил на уровне верха цифр — при любом числе цифр */
+    {
         int top = SPD_BASE - mn_ink_up(&hud_font_mspeed, "0");
-        mn_text_at(mn_spd_unit, &hud_font_munit22, u, SPD3_RIGHT + 5, top + mn_ink_up(&hud_font_munit22, u));
-    } else {
-        mn_text_at(mn_spd_unit, &hud_font_munit22, u, left + w + 9, SPD_BASE);
+        int ux = (d3 ? SPD3_RIGHT : left + w) + 5;
+        mn_text_at(mn_spd_unit, &hud_font_munit22, u, ux, top + mn_ink_up(&hud_font_munit22, u));
     }
     g_row_cx = cx; g_spd_left = left;
 }
