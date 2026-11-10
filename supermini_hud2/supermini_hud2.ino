@@ -40,4 +40,4 @@ void setup()
 #endif
 }
 
-void loop() { hud_portal_poll(); vTaskDelay(pdMS_TO_TICKS(20)); }
+void loop() { hud_portal_poll(); vTaskDelay(pdMS_TO_TICKS(hud_portal_active() ? 2 : 20)); }   /* пока портал открыт — опрос чаще, страница грузится быстрее */

@@ -278,13 +278,19 @@ void hud_portal_begin(void)
         WiFi.softAPdisconnect(true); WiFi.mode(WIFI_OFF); return;
     }
     dns.start(53, "*", WiFi.softAPIP());
-    server.on("/", HTTP_GET, [] { server.send_P(200, "text/html; charset=utf-8", HUD_PORTAL_PAGE); });
+    server.on("/", HTTP_GET, [] {
+        Serial.printf("[portal] GET / от %s\n", server.client().remoteIP().toString().c_str());
+        server.send_P(200, "text/html; charset=utf-8", HUD_PORTAL_PAGE);
+    });
     server.on("/api/state", HTTP_GET, api_state);
     server.on("/api/set", HTTP_POST, api_set);
     server.on("/api/cal", HTTP_POST, api_cal);
     server.on("/update", HTTP_POST, ota_done, ota_upload);
     server.on("/cams", HTTP_POST, cams_done, cams_upload);
-    server.onNotFound([] { server.sendHeader("Location", "http://192.168.4.1/"); server.send(302, "text/plain", ""); });
+    server.onNotFound([] {
+        Serial.printf("[portal] %s %s (host %s) -> 302\n", server.method() == HTTP_GET ? "GET" : "запрос", server.uri().c_str(), server.hostHeader().c_str());
+        server.sendHeader("Location", "http://192.168.4.1/"); server.send(302, "text/plain", "");
+    });
     server.begin();
     deadline = millis() + HUD_PORTAL_MS; active = true;
     Serial.printf("[portal] SSID %s, http://%s/, TX %.2f дБм, закроется через %u с\n", HUD_PORTAL_SSID,
