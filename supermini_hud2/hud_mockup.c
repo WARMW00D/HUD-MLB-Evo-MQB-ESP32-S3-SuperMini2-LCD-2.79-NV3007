@@ -692,6 +692,13 @@ static void mn_build(lv_obj_t *scr)
 }
 
 /* центр текущей зоны скорости, левый и правый края цифр (для знака / камеры) — пишет mn_speed() */
+/* ось скорости: середина «200» (по среднему нулю) — все значения центруются по ней */
+static int mn_speed_axis(void)
+{
+    int a, b;
+    mn_ink(&hud_font_mspeed, "200", &a, &b);
+    return SPD3_RIGHT - (b - a) / 2;
+}
 static int g_row_cx = CX_CENTER, g_spd_left = CX_CENTER;
 
 static void mn_speed(const HudData *d, int ov_opa)
@@ -702,15 +709,14 @@ static void mn_speed(const HudData *d, int ov_opa)
         vis(mn_spd, false);
         for (int i = 0; i < 8; i++) vis(mn_spd_ol[i], false);
         vis(mn_spd_unit, false);
-        g_row_cx = CX_CENTER; g_spd_left = CX_CENTER;
+        g_row_cx = mn_speed_axis(); g_spd_left = g_row_cx;
         return;
     }
     snprintf(buf, sizeof buf, "%u", spd(d->speed_kmh));
-    const bool d3 = strlen(buf) >= 3;
     int a, b;
     mn_ink(&hud_font_mspeed, buf, &a, &b);
     const int w = b - a;
-    const int cx = d3 ? SPD3_RIGHT - w / 2 : CX_CENTER;
+    const int cx = mn_speed_axis();
     int left;
     mn_digits(mn_spd, &hud_font_mspeed, buf, cx, SPD_BASE, &left);
     /* превышение — красная обводка вокруг белых цифр */
@@ -728,7 +734,7 @@ static void mn_speed(const HudData *d, int ov_opa)
     /* единица всегда справа от цифр, верх чернил на уровне верха цифр — при любом числе цифр */
     {
         int top = SPD_BASE - mn_ink_up(&hud_font_mspeed, "0");
-        int ux = (d3 ? SPD3_RIGHT : left + w) + 5;
+        int ux = left + w + 5;
         mn_text_at(mn_spd_unit, &hud_font_munit22, u, ux, top + mn_ink_up(&hud_font_munit22, u));
     }
     g_row_cx = cx; g_spd_left = left;
