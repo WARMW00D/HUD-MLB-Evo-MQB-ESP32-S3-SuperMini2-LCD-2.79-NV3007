@@ -2,8 +2,8 @@
   hud_portal.cpp — Wi-Fi портал настроек supermini_hud2
   ------------------------------------------------------------------------------
   * Точка доступа HUD_PORTAL_SSID (WPA2, пароль HUD_PORTAL_PASS), адрес http://192.168.4.1/ (DNS отвечает всем именам).
-  * Работает HUD_PORTAL_MS после включения, затем Wi-Fi выключается совсем (BLE-клиент сниффера продолжает работать).
-    Пока идёт загрузка файла, портал не закрывается.
+  * Работает HUD_PORTAL_MS после включения, но только пока машина стоит: скорость > 0 (HUD_PORTAL_MOVE_MS) — Wi-Fi выключается совсем (BLE-клиент сниффера продолжает работать).
+    Пока идёт загрузка файла, срок не истекает (но тронувшаяся машина всё равно выключает Wi-Fi, OTA при этом отменяется).
   * Мощность передатчика ограничена HUD_PORTAL_TX_QDBM (единицы 0.25 дБм; 40 = 10 дБм).
   * Страницы: / (настройки), /api/state, /api/set, /api/cal, /update (OTA прошивки), /cams (cams.bin).
 */
@@ -23,6 +23,7 @@
 #include "hud_sound.h"
 #include "hud_settings.h"
 #include "hud_portal.h"
+#include "hud_data.h"
 #include "hud_portal_page.h"
 
 static_assert(HUD_PORTAL_TX_QDBM > 0 && HUD_PORTAL_TX_QDBM <= 40, "Мощность Wi-Fi: не выше 10 дБм (40 единиц по 0.25 дБм).");
@@ -277,6 +278,24 @@ void hud_portal_poll(void)
     if (!active) return;
     dns.processNextRequest();
     server.handleClient();
+    /* машина тронулась — Wi-Fi выключается совсем (скорость > 0 дольше HUD_PORTAL_MOVE_MS);
+       без CAN-данных о скорости (V_SPEED не выставлен) портал живёт до конца срока */
+    {
+        static uint32_t moving_since = 0;
+        HudData d; hud_data_snapshot(&d);
+        if ((d.valid & V_SPEED) && d.speed_kmh > 0) {
+            const uint32_t now = millis();
+            if (!moving_since) moving_since = now ? now : 1;
+            if ((uint32_t)(now - moving_since) >= HUD_PORTAL_MOVE_MS) {
+                if (upload_busy) Update.abort();   /* недозаписанная прошивка не применится */
+                Serial.println("[portal] машина тронулась");
+                stop_portal();
+                return;
+            }
+        } else {
+            moving_since = 0;
+        }
+    }
     /* пока идёт загрузка файла, срок не истекает; после неё портал закроется через HUD_PORTAL_GRACE_MS */
     if (upload_busy) { const uint32_t d = millis() + HUD_PORTAL_GRACE_MS; if ((int32_t)(d - deadline) > 0) deadline = d; return; }
     if ((int32_t)(millis() - deadline) >= 0) stop_portal();

@@ -54,6 +54,7 @@
 #define HUD_PORTAL_CHANNEL     6
 #define HUD_PORTAL_MAX_CLIENTS 2
 #define HUD_PORTAL_MS          300000u   /* 5 минут после включения */
+#define HUD_PORTAL_MOVE_MS     1000u     /* скорость > 0 дольше этого времени — Wi-Fi выключается (до следующего включения питания) */
 #define HUD_PORTAL_GRACE_MS    60000u    /* после окончания загрузки файла портал закроется через это время */
 #define HUD_PORTAL_TX_QDBM     40        /* Wi-Fi: потолок 10 дБм (реально 8.5 дБм) */
 #define HUD_BLE_TX_DBM         6         /* BLE-клиент сниффера: не выше 10 дБм */
