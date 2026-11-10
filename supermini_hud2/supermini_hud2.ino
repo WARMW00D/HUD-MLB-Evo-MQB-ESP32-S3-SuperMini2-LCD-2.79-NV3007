@@ -7,6 +7,7 @@
 #include "hud_source.h"
 #include "hud_settings.h"
 #include "hud_ble_core.h"
+#include "hud_cams.h"
 #include "hud_portal.h"
 #include "hud_log.h"
 #include "hud_sound.h"
@@ -33,6 +34,7 @@ void setup()
     hud_ble_core_begin();       /* NimBLE как клиент сниффера */
     lvgl_port_init();
     setUpduty(255 - HUD_BRIGHT_NO_DATA);
+    hud_cams_start();           /* база камер cams.bin из флеши W25Q128 в PSRAM (фоновая задача) */
     hud_source_start();
     hud_portal_begin();         /* точка доступа на HUD_PORTAL_MS, мощность <= 10 дБм */
 #if HUD_SOUND_STARTUP
