@@ -52,12 +52,9 @@ static const AclRule ACL[] = {
     { ACL_PERMIT,           200, 0x2A8,      0x7FF      },  /* ACC_14: статус          */
 #endif
     { ACL_PERMIT,           200, 0x31E,      0x7FF      },  /* лимитер (CRC+BZ)        */
-#if HUD_PLATFORM != HUD_PLATFORM_MQB
-    { ACL_PERMIT,           100, 0x2A9,      0x7FF      },  /* ACC_15: pre sense (AWV) */
-#endif
     { ACL_PERMIT,           100, 0x5F0,      0x7FF      },  /* Dimmung_01: яркость (колёсико — каждые ~60 мс) */
     { ACL_PERMIT,           100, 0x30F,      0x7FF      },  /* SWA_01: Side Assist (CRC — без ONCHANGE) */
-    /* 0x101 ESP_02 убран из списка: бар ускорения берёт производную скорости Kombi_01 */
+    /* Минимальный режим: КП, мигалки, двери, капот, pre sense и бортовой компьютер (0x394, 0x366, 0x583, 0x65A, 0x2A9, BAP_BC) не нужны */
     { ACL_PERMIT,           200, 0x5A0,      0x7FF      },  /* RLS_01: датчик света (яркость HUD)  */
 #if HUD_PLATFORM != HUD_PLATFORM_MQB
     { ACL_PERMIT,           100, 0x64F,      0x7FF      },  /* BCM1_04: колёсико подсветки         */
@@ -68,8 +65,6 @@ static const AclRule ACL[] = {
        декодер их по-прежнему понимает — для своего трансивера на другой шине */
     { ACL_PERMIT,             0, 0x462,      0x7FE      },  /* PSD_04 + PSD_05: сегменты и позиция — без фильтров! */
     { ACL_PERMIT,             0, 0x464,      0x7FF      },  /* PSD_06: ограничения (мультиплекс) — без фильтров! */
-    { ACL_PERMIT,           200, 0x394,      0x7FF      },  /* WBA_03: режим и № передачи */
-    { ACL_PERMIT,             0, 0x366,      0x7FF      },  /* Blinkmodi_02            */
     { ACL_PERMIT,           500, 0x181,      0x7FF      },  /* VZE_01: знаки           */
     { ACL_PERMIT,           500, 0x29C,      0x7FF      },  /* VZE_02: знаки 4/5       */
 #if HUD_PLATFORM == HUD_PLATFORM_MQB
@@ -77,10 +72,7 @@ static const AclRule ACL[] = {
 #else
     { ACL_PERMIT, LKA_MIN_INTERVAL_MS, 0x397, 0x7FF },     /* LDW_02: Lane Assist     */
 #endif
-    { ACL_PERMIT,          1000, 0x583,      0x7FF      },  /* ZV_02: двери, багажник  */
-    { ACL_PERMIT,             0, 0x65A,      0x7FF      },  /* BCM_01: капот (1 раз/с) */
     { ACL_PERMIT | ACL_EXT,   0, 0x17333210, 0x1FFFFFFE },  /* BAP Nav FSG ..10/..11   */
-    { ACL_PERMIT | ACL_EXT,   0, 0x17330F10, 0x1FFFFFFF },  /* BAP_BC: бортовой компьютер приборки */
 };
 #define ACL_COUNT (sizeof(ACL) / sizeof(ACL[0]))
 
