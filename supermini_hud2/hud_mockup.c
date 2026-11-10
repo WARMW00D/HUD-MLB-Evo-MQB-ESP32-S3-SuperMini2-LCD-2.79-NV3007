@@ -90,7 +90,7 @@ extern "C" {
 #define CAM_DISC     47      /* круг на жёлтом квадрате камеры                     */
 #define CAM_RING     5
 #define CAM_GAP      15      /* квадрат камеры -> значок и расстояние              */
-#define CAM_LEFT     137     /* левый край ряда камеры (фиксирован)                */
+#define CAM_LEFT     154     /* левый край ряда камеры (фиксирован)                */
 #define CAM_BASE     141     /* базовая линия расстояния до камеры                 */
 #define CAM_EYE_BOT  115     /* низ значка камеры                                  */
 #define ICON_X       (CX_RIGHT - M_ACC_W / 2)
