@@ -14,6 +14,7 @@ struct HudSettings {
     uint8_t cam_beep;   /* сигнал камеры                   0/1   */
     uint8_t volume;     /* громкость, 0..100 %                   */
     uint8_t ldr;        /* фоторезистор                    0/1   */
+    uint8_t street;     /* название улицы над стрелкой     0/1   */
 };
 
 void        hud_settings_begin(void);                    /* загрузить из NVS и применить */

@@ -29,6 +29,8 @@ void    hud_set_cams(bool on);         /* камеры: показ (HUD_CAMS) */
 bool    hud_get_cams(void);
 void    hud_set_cam_beep(bool on);     /* камеры: сигнал */
 bool    hud_get_cam_beep(void);
+void    hud_set_street(bool on);       /* название улицы над стрелкой */
+bool    hud_get_street(void);
 
 
 #ifdef __cplusplus

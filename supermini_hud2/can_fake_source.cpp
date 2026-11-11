@@ -55,6 +55,19 @@ static void fake_task(void *)
         memset(d, 0, 8); put_sig(d, 24, 9, v_kmh); put_sig(d, 48, 10, (t % 32200) / 64);   /* та же пила, 0.32 км/ч */
         can_decode_frame(0x30B, false, d, 8);
 
+        /* название улицы (BAP fct 0x14): короткое влезает, длинные — бегущая строка */
+        {
+            static const char *const streets[] = { "ул. Ленина", "Крылатская улица", "МКАД 39-й км Внутренняя Сторона", "просп. Маршала Жукова" };
+            static int idx = -1; static uint32_t last = 0;
+            const int i = (int)((t / 12000) % 4);
+            if (i != idx || t - last > 10000) {
+                idx = i; last = t;
+                uint8_t p[66]; const size_t L = strlen(streets[i]);
+                p[0] = (uint8_t)L; memcpy(p + 1, streets[i], L); p[1 + L] = 0;
+                bap_send_multi(1, 0x14, p, (uint8_t)(L + 2));
+            }
+        }
+
         /* счётчик топлива: 6 л/100 км + 2 л/ч на холостых; > 20 л/100 км на разгоне с места */
         {
             static uint32_t kvs_ul = 0; static float frac = 0;

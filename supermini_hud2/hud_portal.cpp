@@ -203,7 +203,7 @@ static String state_json(bool ok)
     j += ",\"lang\":"; j += hud_get_lang(); j += ",\"units\":"; j += hud_get_units();
     j += ",\"tol\":"; j += hud_get_overspeed_tol(); j += ",\"cams\":"; j += hud_get_cams() ? 1 : 0;
     j += ",\"cam_beep\":"; j += hud_get_cam_beep() ? 1 : 0; j += ",\"volume\":"; j += hud_sound_volume();
-    j += ",\"ldr\":"; j += hud_light_enabled() ? 1 : 0; j += ",\"mv\":"; j += hud_light_mv(); j += "}";
+    j += ",\"street\":"; j += hud_get_street() ? 1 : 0; j += ",\"ldr\":"; j += hud_light_enabled() ? 1 : 0; j += ",\"mv\":"; j += hud_light_mv(); j += "}";
     return j;
 }
 static void send_json(int code, const String &j)
@@ -229,7 +229,7 @@ static void api_set()
     for (int i = 0; i < server.args(); ++i) arduino_printf("[portal]   %s=%s\n", server.argName(i).c_str(), server.arg(i).c_str());
     const bool ok = arg_u8("psd", s.psd, 1) && arg_u8("vze", s.vze, 1) && arg_u8("lang", s.lang, 1) &&
                     arg_u8("units", s.units, 1) && arg_u8("tol", s.tol, 100) && arg_u8("cams", s.cams, 1) &&
-                    arg_u8("cam_beep", s.cam_beep, 1) && arg_u8("volume", s.volume, 100) && arg_u8("ldr", s.ldr, 1) &&
+                    arg_u8("cam_beep", s.cam_beep, 1) && arg_u8("volume", s.volume, 100) && arg_u8("ldr", s.ldr, 1) && arg_u8("street", s.street, 1) &&
                     hud_settings_set(s);
     arduino_printf("[portal] set -> %s; HUD сейчас: lang=%u units=%u psd=%d vze=%d tol=%u cams=%d beep=%d vol=%u ldr=%d\n", ok ? "ok" : "ОШИБКА",
                   hud_get_lang(), hud_get_units(), hud_get_psd(), hud_get_vze(), hud_get_overspeed_tol(), hud_get_cams(), hud_get_cam_beep(),

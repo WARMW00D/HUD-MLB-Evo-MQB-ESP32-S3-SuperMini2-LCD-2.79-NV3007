@@ -40,11 +40,12 @@
 #define TO_RLS     1500
 #define TO_SWA     1000
 #define TO_GPS     1500    /* NavPos_01 / NavData_01: 5 Гц */
+#define TO_STREET  40000   /* название улицы: BAP шлёт его при смене и в heartbeat (~13 с) */
 #define TO_WHEEL   3000    /* BCM1_04: раз в 1 с в покое, 50-60 мс при вращении */   /* BAP_BC: 0x18 раз в ~4 с при изменении, остальное — heartbeat ~25 с */
 
-enum { S_SPEED, S_ACC, S_GEAR, S_BLINK, S_SIGN, S_MAN, S_MDIST, S_DEST, S_TTE, S_LKA, S_DOORS, S_HOOD, S_GNUM, S_JAM, S_LIM, S_AWV, S_DIM, S_ACCEL, S_SPDACC, S_BRAKE, S_FUEL, S_RESERVED21, S_BC, S_BCFUEL, S_RLS, S_WHEEL, S_SWA, S_GPS, S_HDG, S_COUNT };
+enum { S_SPEED, S_ACC, S_GEAR, S_BLINK, S_SIGN, S_MAN, S_MDIST, S_DEST, S_TTE, S_LKA, S_DOORS, S_HOOD, S_GNUM, S_JAM, S_LIM, S_AWV, S_DIM, S_ACCEL, S_SPDACC, S_BRAKE, S_FUEL, S_RESERVED21, S_BC, S_BCFUEL, S_RLS, S_WHEEL, S_SWA, S_GPS, S_HDG, S_STREET, S_COUNT };
 static const uint32_t s_timeout[S_COUNT] = {
-    TO_SPEED, TO_ACC, TO_GEAR, TO_BLINK, TO_SIGN, TO_NAV, TO_NAV, TO_NAV, TO_NAV, TO_LKA, TO_DOORS, TO_HOOD, TO_GNUM, TO_JAM, TO_LIM, TO_AWV, TO_DIM, TO_ACCEL, TO_SPDACC, TO_BRAKE, TO_FUEL, TO_RESERVED21, TO_BC, TO_BC, TO_RLS, TO_WHEEL, TO_SWA, TO_GPS, TO_GPS
+    TO_SPEED, TO_ACC, TO_GEAR, TO_BLINK, TO_SIGN, TO_NAV, TO_NAV, TO_NAV, TO_NAV, TO_LKA, TO_DOORS, TO_HOOD, TO_GNUM, TO_JAM, TO_LIM, TO_AWV, TO_DIM, TO_ACCEL, TO_SPDACC, TO_BRAKE, TO_FUEL, TO_RESERVED21, TO_BC, TO_BC, TO_RLS, TO_WHEEL, TO_SWA, TO_GPS, TO_GPS, TO_STREET
 };
 
 static HudData      s_data;
@@ -279,6 +280,25 @@ static void bc_message(uint8_t fct, const uint8_t *p, uint16_t n)
     taskEXIT_CRITICAL(&s_mux);
 }
 
+/* Строка BAP: [длина][UTF-8][0]. Копирует в dst[64], возвращает длину (0 — пусто). */
+static int street_parse(const uint8_t *p, uint16_t n, char *dst)
+{
+    if (n < 2) return 0;
+    uint16_t len = p[0];
+    if (len > n - 1) len = n - 1;
+    uint16_t k = 0;
+    while (k < len && p[1 + k] != 0) k++;                 /* до NUL */
+    if (k > 63) {                                          /* не рвать символ UTF-8 */
+        k = 63;
+        while (k > 0 && (p[1 + k] & 0xC0) == 0x80) k--;
+    }
+    for (uint16_t i = 0; i < k; i++) dst[i] = p[1 + i] < 0x20 ? ' ' : (char)p[1 + i];
+    while (k > 0 && dst[k - 1] == ' ') k--;
+    dst[k] = 0;
+    return k;
+}
+static uint32_t s_street_short_t;                         /* когда пришла короткая форма */
+
 static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
 {
     uint8_t opcode = (hdr >> 12) & 7;
@@ -328,6 +348,20 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
             }
         }
         break;
+    case 0x13: /* название улицы, полное («Крылатская улица») */
+    case 0x14: /* название улицы, короткое («ул. Ленина», как на указателях) — предпочтительнее */
+    {
+        char tmp[64];
+        if (street_parse(p, n, tmp) > 0) {          /* пустые строки приходят между обновлениями — игнорируем */
+            uint32_t t = hud_now_ms();
+            if (fct == 0x14) { memcpy(s_data.street, tmp, sizeof tmp); s_street_short_t = t ? t : 1; }
+            else {
+                if (!s_street_short_t || (int32_t)(t - s_street_short_t) >= TO_STREET) memcpy(s_data.street, tmp, sizeof tmp);
+            }
+            touch(S_STREET);
+        }
+        break;
+    }
     case 0x17: /* ManeuverDescriptor — только Maneuver_1 */
         if (n >= 2) {
             s_data.man_main = p[0];

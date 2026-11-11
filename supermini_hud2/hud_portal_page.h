@@ -22,6 +22,7 @@ progress{width:100%;height:10px}.msg{font-size:14px;margin:6px 0;min-height:20px
 <div class="row"><label data-t="units">Единицы</label><select id="units"><option value="0">км/ч, км, м</option><option value="1">mph, mi, ft</option></select></div>
 <div class="row"><label data-t="psd">Знаки из прогноза маршрута (PSD)</label><input type="checkbox" id="psd"></div>
 <div class="row"><label data-t="vze">Знаки из камеры/карты приборки (VZE)</label><input type="checkbox" id="vze"></div>
+<div class="row"><label data-t="street">Название улицы над стрелкой</label><input type="checkbox" id="street"></div>
 <div class="row"><label data-t="tol">Допуск превышения, км/ч</label><input type="number" id="tol" min="0" max="100"></div>
 </div>
 <h2 data-t="h_cam">Камеры</h2><div class="card">
@@ -45,12 +46,12 @@ progress{width:100%;height:10px}.msg{font-size:14px;margin:6px 0;min-height:20px
 <input type="file" id="ff" accept=".bin"><br><br><button onclick="up('update','ff')" data-t="send">Загрузить</button>
 <progress id="pf" value="0" max="100" hidden></progress><div class="msg" id="mf"></div></div></div>
 <script>
-const T={ru:{open:'портал закроется через',h_main:'Основное',lang:'Язык',units:'Единицы',psd:'Знаки из прогноза маршрута (PSD)',vze:'Знаки из камеры/карты приборки (VZE)',tol:'Допуск превышения, км/ч',h_cam:'Камеры',cams:'Показывать камеры',beep:'Сигнал при камере',vol:'Громкость',h_light:'Яркость',ldr:'Фоторезистор',mv:'Сигнал датчика',cal_d:'Запомнить «темно»',cal_b:'Запомнить «ярко»',save:'Сохранить',h_cams:'База камер (cams.bin)',h_log:'Журнал',dl:'Скачать журнал (.tar)',h_fw:'Прошивка (OTA)',send:'Загрузить',saved:'Сохранено',fail:'Ошибка',closed:'портал закрыт',done:'Готово',reboot:'Готово, HUD перезагружается'},
-en:{open:'portal closes in',h_main:'General',lang:'Language',units:'Units',psd:'Route-prediction signs (PSD)',vze:'Cluster/map signs (VZE)',tol:'Overspeed tolerance, km/h',h_cam:'Cameras',cams:'Show cameras',beep:'Camera beep',vol:'Volume',h_light:'Brightness',ldr:'Photoresistor',mv:'Sensor level',cal_d:'Set "dark" point',cal_b:'Set "bright" point',save:'Save',h_cams:'Camera database (cams.bin)',h_log:'Log',dl:'Download log (.tar)',h_fw:'Firmware (OTA)',send:'Upload',saved:'Saved',fail:'Error',closed:'portal closed',done:'Done',reboot:'Done, HUD is rebooting'}};
+const T={ru:{open:'портал закроется через',h_main:'Основное',lang:'Язык',units:'Единицы',psd:'Знаки из прогноза маршрута (PSD)',vze:'Знаки из камеры/карты приборки (VZE)',street:'Название улицы над стрелкой',tol:'Допуск превышения, км/ч',h_cam:'Камеры',cams:'Показывать камеры',beep:'Сигнал при камере',vol:'Громкость',h_light:'Яркость',ldr:'Фоторезистор',mv:'Сигнал датчика',cal_d:'Запомнить «темно»',cal_b:'Запомнить «ярко»',save:'Сохранить',h_cams:'База камер (cams.bin)',h_log:'Журнал',dl:'Скачать журнал (.tar)',h_fw:'Прошивка (OTA)',send:'Загрузить',saved:'Сохранено',fail:'Ошибка',closed:'портал закрыт',done:'Готово',reboot:'Готово, HUD перезагружается'},
+en:{open:'portal closes in',h_main:'General',lang:'Language',units:'Units',psd:'Route-prediction signs (PSD)',vze:'Cluster/map signs (VZE)',street:'Street name above the arrow',tol:'Overspeed tolerance, km/h',h_cam:'Cameras',cams:'Show cameras',beep:'Camera beep',vol:'Volume',h_light:'Brightness',ldr:'Photoresistor',mv:'Sensor level',cal_d:'Set "dark" point',cal_b:'Set "bright" point',save:'Save',h_cams:'Camera database (cams.bin)',h_log:'Log',dl:'Download log (.tar)',h_fw:'Firmware (OTA)',send:'Upload',saved:'Saved',fail:'Error',closed:'portal closed',done:'Done',reboot:'Done, HUD is rebooting'}};
 let L=(navigator.language||'ru').startsWith('en')?'en':'ru',left=0,up_busy=false;
 const $=id=>document.getElementById(id),tr=k=>T[L][k]||k;
 function i18n(){document.querySelectorAll('[data-t]').forEach(e=>e.textContent=tr(e.dataset.t))}
-const F=['psd','vze','cams','cam_beep','ldr'],N=['lang','units','tol','volume'];
+const F=['psd','vze','street','cams','cam_beep','ldr'],N=['lang','units','tol','volume'];
 function fill(s){F.forEach(k=>$(k).checked=!!s[k]);N.forEach(k=>$(k).value=s[k])}
 async function st(){try{const s=await(await fetch('/api/state')).json();$('ver').textContent='v'+s.ver;left=s.left;$('mv').textContent=s.mv;
  if(!st.f){fill(s);st.f=1;L=s.lang?'en':'ru';i18n()}}catch(e){$('left').textContent=tr('closed')}}

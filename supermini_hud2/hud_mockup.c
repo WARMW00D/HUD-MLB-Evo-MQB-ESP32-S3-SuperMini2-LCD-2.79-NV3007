@@ -42,6 +42,7 @@ LV_FONT_DECLARE(hud_font_msign3);   /*   3 цифры                           
 LV_FONT_DECLARE(hud_font_mcdisc2);  /* цифры круга камеры: 2 цифры                               */
 LV_FONT_DECLARE(hud_font_mcdisc3);  /*   3 цифры                                                 */
 LV_FONT_DECLARE(hud_font_menu);     /* сообщения (кириллица + латиница)                          */
+LV_FONT_DECLARE(hud_font_mstreet);   /* название улицы над стрелкой (узкий, кириллица + латиница)  */
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,9 +95,13 @@ extern "C" {
 #define CAM_EYE_BOT  115     /* низ значка камеры                                  */
 #define ICON_X       (CX_RIGHT - M_ACC_W / 2)
 #define ICON_Y       19
+#define STREET_X     2       /* название улицы над стрелкой: бегущая строка в окне STREET_W x 22 */
+#define STREET_Y     3       /* стрелка начинается с y = ARROW_Y + 9 = 27                         */
+#define STREET_W     138     /* справа начинаются цифры «200» (x = 144)                           */
+#define STREET_SPEED 35      /* px/с бегущей строки                                               */
 
 /* ---------- хэндлы ---------- */
-static lv_obj_t *mn_arrow, *mn_dist_num, *mn_dist_unit, *mn_calc;
+static lv_obj_t *mn_arrow, *mn_dist_num, *mn_dist_unit, *mn_calc, *mn_street;
 static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol[8];   /* mn_spd_ol — красная обводка цифр скорости при превышении */
 static lv_obj_t *mn_sign, *mn_sign_lbl, *mn_sign_end, *mn_sign_car_l, *mn_sign_car_r;
 static lv_obj_t *mn_cam_sq, *mn_cam_disc, *mn_cam_lbl, *mn_cam_eye, *mn_cam_dist;
@@ -193,6 +198,10 @@ static volatile bool    g_vze   = HUD_VZE_SIGNS;
 static volatile uint8_t g_speed_tol = HUD_OVERSPEED_TOL_KMH;
 static volatile bool    g_cams_on  = HUD_CAMS_ON;
 static volatile bool    g_cam_beep = HUD_CAM_BEEP;
+#ifndef HUD_STREET_ON
+#define HUD_STREET_ON 1
+#endif
+static volatile bool    g_street_on = HUD_STREET_ON;
 
 void    hud_set_lang(uint8_t lang)   { g_lang  = lang  == HUD_LANG_EN  ? HUD_LANG_EN  : HUD_LANG_RU;  }
 void    hud_set_units(uint8_t units) { g_units = units == HUD_UNITS_MI ? HUD_UNITS_MI : HUD_UNITS_KM; }
@@ -208,6 +217,8 @@ void    hud_set_cams(bool on)        { g_cams_on = on; }
 bool    hud_get_cams(void)           { return g_cams_on; }
 void    hud_set_cam_beep(bool on)    { g_cam_beep = on; }
 bool    hud_get_cam_beep(void)       { return g_cam_beep; }
+void    hud_set_street(bool on)      { g_street_on = on; }
+bool    hud_get_street(void)         { return g_street_on; }
 
 typedef struct { const char *kmh, *m, *km, *h; } HudTxt;
 static const HudTxt TXT_RU = { "км/ч", "м", "км", "ч" };
@@ -680,6 +691,14 @@ static void mn_build(lv_obj_t *scr)
             mn_bl_fill[i] = mn_img(scr, bf[i], bx[i], HUD_PANEL_H - M_BLINK_W, C_BLINK_GRN);
         }
     }
+
+    /* название улицы: влезает — по центру, не влезает — бегущая строка по кругу */
+    mn_street = mn_label(scr, &hud_font_mstreet, C_UNIT_SMALL);
+    lv_label_set_long_mode(mn_street, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_width(mn_street, STREET_W);
+    lv_obj_set_style_text_align(mn_street, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_anim_speed(mn_street, STREET_SPEED, 0);
+    lv_obj_set_pos(mn_street, STREET_X, STREET_Y);
 }
 
 /* центр текущей зоны скорости, левый и правый края цифр (для знака / камеры) — пишет mn_speed() */
@@ -763,6 +782,13 @@ static void hud_update_cb(lv_timer_t *t)
     char buf[40];
     const HudTxt *tx = txt();
     uint16_t lim_kmh_for_speed = 0;
+
+    /* --- название улицы над стрелкой --- */
+    {
+        bool st = g_street_on && (d.valid & V_STREET) && d.street[0];
+        if (st) set_text(mn_street, d.street);
+        vis(mn_street, st);
+    }
 
     /* --- яркость --- */
     update_brightness(&d, now);
