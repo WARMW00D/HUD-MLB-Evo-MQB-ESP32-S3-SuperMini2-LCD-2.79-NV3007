@@ -690,6 +690,23 @@ static int mn_speed_axis(void)
     mn_ink(&hud_font_mspeed, "200", &a, &b);
     return SPD3_RIGHT - (b - a) / 2;
 }
+/* центр среднего нолика «200» — фиксированная ось знака (не зависит от показанной скорости) */
+static int mn_sign_axis(void)
+{
+    int a, b, adv = 0, ia = 0, mid = 0;
+    bool first = true;
+    mn_ink(&hud_font_mspeed, "200", &a, &b);
+    for (int i = 0; "200"[i]; i++) {
+        lv_font_glyph_dsc_t g;
+        if (!lv_font_get_glyph_dsc(&hud_font_mspeed, &g, (uint32_t)(uint8_t)"200"[i], 0)) continue;
+        if (g.box_w > 0) {
+            if (first) { ia = adv + g.ofs_x; first = false; }
+            if (i == 1) mid = adv + g.ofs_x + g.box_w / 2;
+        }
+        adv += g.adv_w;
+    }
+    return (SPD3_RIGHT - (b - a)) + (mid - ia);       /* левый край чернил «200» + середина среднего нуля */
+}
 static int g_row_cx = CX_CENTER, g_spd_left = CX_CENTER;
 
 static void mn_speed(const HudData *d, int ov_opa)
@@ -929,7 +946,7 @@ static void hud_update_cb(lv_timer_t *t)
         bool sg = !cam && smode != SIGN_HIDE && smode != SIGN_RAW;
         vis(mn_sign, sg);
         if (sg) {
-            lv_obj_set_x(mn_sign, g_row_cx - SIGN_D / 2);
+            lv_obj_set_x(mn_sign, mn_sign_axis() - SIGN_D / 2);
             bool wr = d.sign_warn && (now % 500) < 250;
             set_bg_color(mn_sign, wr ? C_SIGN_WARN : 0xffffff);
             set_border_color(mn_sign, (smode == SIGN_LIMIT || smode == SIGN_NOOVT) ? C_SIGN_RED : C_GRAY);
