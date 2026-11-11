@@ -9,6 +9,7 @@
 #include "hud_data.h"
 #include "hud_config.h"
 #include "psd_speedlimit.h"
+#include "hud_time.h"
 #include <string.h>
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
@@ -462,6 +463,12 @@ void can_decode_frame(uint32_t id, bool ext, const uint8_t *data, uint8_t dlc)
         if (id == 0x17333210) bap_frame(0, data, dlc);
         else if (id == 0x17333211) bap_frame(1, data, dlc);
         else if (id == 0x17330F10) bap_frame(2, data, dlc);   /* BAP_BC от приборки */
+        return;
+    }
+
+    /* время машины (Diagnose_01) — свой модуль со своей блокировкой */
+    if (id == 0x6B2) {
+        if (dlc == 8) hud_time_on_6b2(data, hud_now_ms());
         return;
     }
 

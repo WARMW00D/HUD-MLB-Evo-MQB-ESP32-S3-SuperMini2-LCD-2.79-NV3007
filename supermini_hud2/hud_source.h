@@ -4,20 +4,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Запускает источник(и) CAN-кадров по HUD_DATA_SOURCE из hud_config.h:
-   BLE-клиент сниффера, свой трансивер (TWAI), оба сразу (AUTO) или генератор. */
+/* Запускает источник CAN-кадров по HUD_DATA_SOURCE из hud_config.h:
+   свой трансивер (TWAI, по умолчанию) или встроенный генератор (FAKE). */
 void hud_source_start(void);
 
 /* ---- для модулей-источников ---- */
-enum { HUD_SRC_ID_BLE = 0, HUD_SRC_ID_TWAI = 1, HUD_SRC_ID_FAKE = 2 };
-void hud_src_set_up(int src, bool up);   /* связь источника есть / нет           */
-void hud_src_twai_frame(void);           /* TWAI принял кадр (для выбора в AUTO) */
-bool hud_src_twai_active(void);          /* по TWAI недавно были кадры           */
-int  hud_src_current(void);               /* 1 CAN, 0 BLE/fake, -1 нет данных   */
-void hud_src_set_pair_failed(bool on);   /* BLE: сопряжение не удаётся (подсказка на экране) */
-bool hud_src_pair_failed(void);
+enum { HUD_SRC_ID_TWAI = 1, HUD_SRC_ID_FAKE = 2 };
+void hud_src_set_up(int src, bool up);   /* связь источника есть / нет */
 
-void ble_source_start(void);
 void twai_source_start(void);
 void fake_source_start(void);
 #ifdef __cplusplus

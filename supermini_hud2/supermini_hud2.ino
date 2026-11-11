@@ -1,12 +1,12 @@
 /* HUD Super Mini 2: ESP32-S3 Super Mini, NV3007 428x142, минимальный режим, портал настроек по Wi-Fi (5 минут после включения).
-   Версия: HUD_FW_VERSION_STRING (hud_config.h). CAN-данные: свой TWAI-трансивер и/или BLE-сниффер (HUD_DATA_SOURCE). */
+   Версия: HUD_FW_VERSION_STRING (hud_config.h). CAN-данные: свой TWAI-трансивер (HUD_DATA_SOURCE), BLE в проекте нет. */
 #include "user_config.h"
 #include "lvgl_port.h"
 #include "lvgl.h"
 #include "hud_config.h"
 #include "hud_source.h"
 #include "hud_settings.h"
-#include "hud_ble_core.h"
+#include "hud_flog.h"
 #include "hud_cams.h"
 #include "hud_portal.h"
 #include "hud_log.h"
@@ -22,7 +22,7 @@ void setup()
 {
     Serial.begin(115200);
     delay(300);
-    Serial.println("[fw] HUD Super Mini 2 v" HUD_FW_VERSION_STRING " / Wi-Fi portal");
+    hud_log_write("[fw] HUD Super Mini 2 v" HUD_FW_VERSION_STRING " / CAN only, Wi-Fi portal\n");
     /* Legacy duty convention: 255 = dark, 0 = full brightness. */
     lcd_bl_pwm_bsp_init(255);
     hud_log_write("=== Super Mini 2 / NV3007 HUD ===\n");
@@ -31,10 +31,10 @@ void setup()
 #endif
     hud_sound_begin();
     hud_settings_begin();       /* NVS -> применить настройки */
-    hud_ble_core_begin();       /* NimBLE как клиент сниффера */
     lvgl_port_init();
     setUpduty(255 - HUD_BRIGHT_NO_DATA);
     hud_cams_start();           /* база камер cams.bin из флеши W25Q128 в PSRAM (фоновая задача) */
+    hud_flog_start();           /* журнал hud.log.NNNN во флеше W25Q128 */
     hud_source_start();
     hud_portal_begin();         /* точка доступа на HUD_PORTAL_MS, мощность <= 10 дБм */
 #if HUD_SOUND_STARTUP

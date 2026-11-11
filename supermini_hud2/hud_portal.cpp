@@ -2,10 +2,10 @@
   hud_portal.cpp — Wi-Fi портал настроек supermini_hud2
   ------------------------------------------------------------------------------
   * Точка доступа HUD_PORTAL_SSID (WPA2, пароль HUD_PORTAL_PASS), адрес http://192.168.4.1/ (DNS отвечает всем именам).
-  * Работает HUD_PORTAL_MS после включения, но только пока машина стоит: скорость > 0 (HUD_PORTAL_MOVE_MS) — Wi-Fi выключается совсем (BLE-клиент сниффера продолжает работать).
+  * Работает HUD_PORTAL_MS после включения, но только пока машина стоит: скорость > 0 (HUD_PORTAL_MOVE_MS) — Wi-Fi выключается совсем.
     Пока идёт загрузка файла, срок не истекает (но тронувшаяся машина всё равно выключает Wi-Fi, OTA при этом отменяется).
   * Мощность передатчика ограничена HUD_PORTAL_TX_QDBM (единицы 0.25 дБм; 40 = 10 дБм).
-  * Страницы: / (настройки), /api/state, /api/set, /api/cal, /update (OTA прошивки), /cams (cams.bin).
+  * Страницы: / (настройки), /api/state, /api/set, /api/cal, /update (OTA прошивки), /cams (cams.bin), /logs.tar (журнал из флеши).
 */
 #include <Arduino.h>
 #include <WiFi.h>
@@ -24,13 +24,11 @@
 #include "hud_settings.h"
 #include "hud_portal.h"
 #include "hud_data.h"
-#include "hud_ble_core.h"
+#include "hud_flog.h"
+#include "hud_log.h"
 #include "hud_portal_page.h"
 
 /* значение по умолчанию, если в user_config.h ещё нет (старая копия файла) */
-#ifndef HUD_PORTAL_BLE_RESUME_MS
-#define HUD_PORTAL_BLE_RESUME_MS 20000u   /* клиентов нет дольше этого времени — BLE снова работает */
-#endif
 #ifndef HUD_PORTAL_MOVE_MS
 #define HUD_PORTAL_MOVE_MS 1000u
 #endif
@@ -177,7 +175,7 @@ static void cams_upload()
         cam_got += u.currentSize;
     } else if (u.status == UPLOAD_FILE_END) {
         if (!cam_err && (cam_got != cam_total || !cam.finish_and_commit())) { cam_err = true; cam_msg = "verification failed"; cam.abort(); }
-        else if (!cam_err) Serial.println("[portal] cams.bin записан, база активна");
+        else if (!cam_err) hud_log_write("[portal] cams.bin записан, база активна\n");
     } else if (u.status == UPLOAD_FILE_ABORTED) {
         cam.abort(); cam_err = true; cam_msg = "aborted";
     }
@@ -227,13 +225,13 @@ static bool arg_u8(const char *k, uint8_t &out, uint8_t max)
 static void api_set()
 {
     HudSettings s = hud_settings_get();
-    Serial.printf("[portal] POST /api/set, аргументов: %d\n", server.args());
-    for (int i = 0; i < server.args(); ++i) Serial.printf("[portal]   %s=%s\n", server.argName(i).c_str(), server.arg(i).c_str());
+    arduino_printf("[portal] POST /api/set, аргументов: %d\n", server.args());
+    for (int i = 0; i < server.args(); ++i) arduino_printf("[portal]   %s=%s\n", server.argName(i).c_str(), server.arg(i).c_str());
     const bool ok = arg_u8("psd", s.psd, 1) && arg_u8("vze", s.vze, 1) && arg_u8("lang", s.lang, 1) &&
                     arg_u8("units", s.units, 1) && arg_u8("tol", s.tol, 100) && arg_u8("cams", s.cams, 1) &&
                     arg_u8("cam_beep", s.cam_beep, 1) && arg_u8("volume", s.volume, 100) && arg_u8("ldr", s.ldr, 1) &&
                     hud_settings_set(s);
-    Serial.printf("[portal] set -> %s; HUD сейчас: lang=%u units=%u psd=%d vze=%d tol=%u cams=%d beep=%d vol=%u ldr=%d\n", ok ? "ok" : "ОШИБКА",
+    arduino_printf("[portal] set -> %s; HUD сейчас: lang=%u units=%u psd=%d vze=%d tol=%u cams=%d beep=%d vol=%u ldr=%d\n", ok ? "ok" : "ОШИБКА",
                   hud_get_lang(), hud_get_units(), hud_get_psd(), hud_get_vze(), hud_get_overspeed_tol(), hud_get_cams(), hud_get_cam_beep(),
                   hud_sound_volume(), hud_light_enabled());
     send_json(ok ? 200 : 400, state_json(ok));
@@ -245,6 +243,27 @@ static void api_cal()
     send_json(ok ? 200 : 400, state_json(ok));
 }
 
+/* ----- журнал из флеши одним .tar (hud.log.NNNN, от старого к новому) ----- */
+static void logs_tar()
+{
+    uint32_t total = 0;
+    if (!hud_flog_tar_open(&total)) { server.send(404, "text/plain; charset=utf-8", "Журнал пуст или флеши нет"); return; }
+    server.setContentLength(total);
+    server.sendHeader("Content-Disposition", "attachment; filename=\"hud-logs.tar\"");
+    server.send(200, "application/x-tar", "");
+    static uint8_t buf[1024];
+    uint32_t sent = 0;
+    size_t n;
+    while ((n = hud_flog_tar_read(buf, sizeof buf)) != 0) {
+        if (!server.client().connected()) break;
+        server.sendContent((const char *)buf, n);
+        sent += n;
+        yield();
+    }
+    while (hud_flog_tar_read(buf, sizeof buf)) {}                 /* закрыть поток при обрыве */
+    arduino_printf("[portal] logs.tar: отправлено %u из %u байт\n", (unsigned)sent, (unsigned)total);
+}
+
 /* ----- жизненный цикл ----- */
 static void stop_portal()
 {
@@ -252,8 +271,7 @@ static void stop_portal()
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_OFF);
     active = false;
-    hud_ble_pause(false);
-    Serial.println("[portal] Wi-Fi выключен");
+    hud_log_write("[portal] Wi-Fi выключен\n");
 }
 void hud_portal_begin(void)
 {
@@ -263,29 +281,28 @@ void hud_portal_begin(void)
     WiFi.onEvent([](arduino_event_id_t ev, arduino_event_info_t info) {
         if (ev == ARDUINO_EVENT_WIFI_AP_STACONNECTED) {
             const uint8_t *m = info.wifi_ap_staconnected.mac;
-            hud_ble_pause(true);   /* радио — только Wi-Fi, пока клиент на портале */
-            Serial.printf("[portal] клиент подключился %02X:%02X:%02X:%02X:%02X:%02X\n", m[0], m[1], m[2], m[3], m[4], m[5]);
+            arduino_printf("[portal] клиент подключился %02X:%02X:%02X:%02X:%02X:%02X\n", m[0], m[1], m[2], m[3], m[4], m[5]);
         } else if (ev == ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED) {
-            Serial.printf("[portal] клиенту выдан IP %s\n", IPAddress(info.wifi_ap_staipassigned.ip.addr).toString().c_str());
+            arduino_printf("[portal] клиенту выдан IP %s\n", IPAddress(info.wifi_ap_staipassigned.ip.addr).toString().c_str());
         } else if (ev == ARDUINO_EVENT_WIFI_AP_STADISCONNECTED) {
-            Serial.println("[portal] клиент отключился");
+            hud_log_write("[portal] клиент отключился\n");
         }
     });
     /* адрес и DHCP задаём явно: 192.168.4.1/24, клиентам выдаются 192.168.4.2... */
     WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
     if (!WiFi.softAP(HUD_PORTAL_SSID, HUD_PORTAL_PASS, HUD_PORTAL_CHANNEL, 0, HUD_PORTAL_MAX_CLIENTS)) {
-        Serial.println("[portal] не удалось поднять точку доступа"); WiFi.mode(WIFI_OFF); return;
+        hud_log_write("[portal] не удалось поднять точку доступа\n"); WiFi.mode(WIFI_OFF); return;
     }
     /* потолок мощности: 40 единиц по 0.25 дБм = 10 дБм. Ставим после старта AP и проверяем. */
     esp_wifi_set_max_tx_power(HUD_PORTAL_TX_QDBM);
     int8_t p = 0;
     if (esp_wifi_get_max_tx_power(&p) != ESP_OK || p > HUD_PORTAL_TX_QDBM) {
-        Serial.printf("[portal] мощность %d (x0.25 дБм) выше лимита — Wi-Fi выключен\n", (int)p);
+        arduino_printf("[portal] мощность %d (x0.25 дБм) выше лимита — Wi-Fi выключен\n", (int)p);
         WiFi.softAPdisconnect(true); WiFi.mode(WIFI_OFF); return;
     }
     dns.start(53, "*", WiFi.softAPIP());
     server.on("/", HTTP_GET, [] {
-        Serial.printf("[portal] GET / от %s\n", server.client().remoteIP().toString().c_str());
+        arduino_printf("[portal] GET / от %s\n", server.client().remoteIP().toString().c_str());
         server.send_P(200, "text/html; charset=utf-8", HUD_PORTAL_PAGE);
     });
     server.on("/api/state", HTTP_GET, api_state);
@@ -293,28 +310,22 @@ void hud_portal_begin(void)
     server.on("/api/cal", HTTP_POST, api_cal);
     server.on("/update", HTTP_POST, ota_done, ota_upload);
     server.on("/cams", HTTP_POST, cams_done, cams_upload);
+    server.on("/logs.tar", HTTP_GET, logs_tar);
     server.onNotFound([] {
-        Serial.printf("[portal] %s %s (host %s) -> 302\n", server.method() == HTTP_GET ? "GET" : "запрос", server.uri().c_str(), server.hostHeader().c_str());
+        arduino_printf("[portal] %s %s (host %s) -> 302\n", server.method() == HTTP_GET ? "GET" : "запрос", server.uri().c_str(), server.hostHeader().c_str());
         server.sendHeader("Location", "http://192.168.4.1/"); server.send(302, "text/plain", "");
     });
     server.begin();
     deadline = millis() + HUD_PORTAL_MS; active = true;
-    Serial.printf("[portal] SSID %s, http://%s/, TX %.2f дБм, закроется через %u с\n", HUD_PORTAL_SSID,
+    arduino_printf("[portal] SSID %s, http://%s/, TX %.2f дБм, закроется через %u с\n", HUD_PORTAL_SSID,
                   WiFi.softAPIP().toString().c_str(), p * 0.25f, (unsigned)(HUD_PORTAL_MS / 1000));
 }
 void hud_portal_poll(void)
 {
-    if (restart_at && (int32_t)(millis() - restart_at) >= 0) { Serial.println("[portal] перезагрузка после OTA"); ESP.restart(); }
+    if (restart_at && (int32_t)(millis() - restart_at) >= 0) { hud_log_write("[portal] перезагрузка после OTA\n"); ESP.restart(); }
     if (!active) return;
     dns.processNextRequest();
     server.handleClient();
-    /* BLE молчит, пока на портале есть клиент; освобождается через HUD_PORTAL_BLE_RESUME_MS после ухода последнего */
-    {
-        static uint32_t last_client = 0;
-        const uint32_t now = millis();
-        if (WiFi.softAPgetStationNum() > 0) { last_client = now ? now : 1; hud_ble_pause(true); }
-        else if (hud_ble_paused() && (uint32_t)(now - last_client) >= HUD_PORTAL_BLE_RESUME_MS) hud_ble_pause(false);
-    }
     /* машина тронулась — Wi-Fi выключается совсем (скорость > 0 дольше HUD_PORTAL_MOVE_MS);
        без CAN-данных о скорости (V_SPEED не выставлен) портал живёт до конца срока */
     {
@@ -325,7 +336,7 @@ void hud_portal_poll(void)
             if (!moving_since) moving_since = now ? now : 1;
             if ((uint32_t)(now - moving_since) >= HUD_PORTAL_MOVE_MS) {
                 if (upload_busy) Update.abort();   /* недозаписанная прошивка не применится */
-                Serial.println("[portal] машина тронулась");
+                hud_log_write("[portal] машина тронулась\n");
                 stop_portal();
                 return;
             }

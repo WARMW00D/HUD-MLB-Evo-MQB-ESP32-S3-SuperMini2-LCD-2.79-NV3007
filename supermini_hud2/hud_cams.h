@@ -22,9 +22,10 @@ extern "C" {
 void hud_cams_start(void);     /* фоновая загрузка базы */
 bool hud_cams_ready(void);     /* база загружена и годна */
 
-/* Низкоуровневый доступ (для BLE-загрузки). Все вызовы потокобезопасны. */
+/* Низкоуровневый доступ (портал, журнал). Все вызовы потокобезопасны. */
 uint32_t hud_cams_flash_capacity(void);   /* ёмкость флеши, байт; 0 — флеши нет */
-uint32_t hud_cams_max_db_bytes(void);     /* наибольший cams.bin, который поместится в PSRAM */
+uint32_t hud_cams_max_db_bytes(void);     /* наибольший cams.bin: влезает в PSRAM и не заходит на область журнала (последние 2 МБ флеши) */
+bool     hud_cams_flash_read(uint32_t addr, uint8_t *dst, size_t n);   /* любой адрес и длина */
 bool     hud_cams_flash_erase(uint32_t addr);                         /* сектор 4 КБ, addr кратен 4096 */
 bool     hud_cams_flash_write(uint32_t addr, const uint8_t *d, size_t n); /* n <= 256, в пределах страницы */
 /* Выгрузить текущую базу, прочитать новую из флеши (len байт с адреса 0), проверить SHA-256

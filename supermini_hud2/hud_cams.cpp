@@ -17,6 +17,7 @@
 #include "hud_config.h"
 #include "hud_log.h"
 #include "hud_cams.h"
+#include "hud_flog_core.h"
 extern "C" {
 #include "cam_alert.h"
 }
@@ -26,6 +27,11 @@ extern "C" {
 #define FLASH_HOST     SPI2_HOST
 #define CHUNK          4096
 #define MAX_DB_BYTES   (8u * 1024u * 1024u)       /* защита от мусора в заголовке */
+#if HUD_FLASH_LOG
+#define LOG_RESERVE    FLOG_TOTAL_BYTES           /* конец флеши занят журналом (hud_flog.cpp) */
+#else
+#define LOG_RESERVE    0u
+#endif
 
 static volatile bool s_ready = false;
 static spi_device_handle_t s_dev;
@@ -33,6 +39,7 @@ static SemaphoreHandle_t s_lock;                  /* один владелец �
 static uint8_t *s_db;                             /* база в PSRAM (её читает cam_alert) */
 static size_t s_db_len;
 static uint8_t *s_small;                          /* 256 Б DMA-буфер для записи */
+static uint8_t *s_rd;                             /* 4 КБ DMA-буфер для hud_cams_flash_read */
 static uint32_t s_capacity;                       /* 0 — флеши нет */
 static int s_open_state;                          /* 0 — не пробовали, 1 — открыта, -1 — нет */
 
@@ -122,7 +129,8 @@ static bool flash_open(void)
     if (s_open_state) return s_open_state > 0;
     s_open_state = -1;
     s_small = (uint8_t *)heap_caps_malloc(256, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-    if (!s_small) { hud_log_write("[cam] no DMA buffer\n"); return false; }
+    s_rd = (uint8_t *)heap_caps_malloc(CHUNK, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    if (!s_small || !s_rd) { hud_log_write("[cam] no DMA buffer\n"); return false; }
     if (!flash_begin()) { hud_log_write("[cam] flash SPI init failed\n"); return false; }
     uint8_t id[3] = {0, 0, 0};
     if (!flash_jedec(id) || id[0] != 0xEF || id[2] < 0x14 || id[2] > 0x19) {
@@ -158,7 +166,7 @@ static bool load_locked(const uint8_t *expect_sha, size_t want_len)
         uint32_t n; memcpy(&n, hdr + 4, 4);
         size_t len = 16 + (size_t)n * 12;
         if (n == 0 || len > MAX_DB_BYTES || (want_len && len != want_len)) { hud_log_write("[cam] bad database size\n"); break; }
-        if (len > s_capacity) { hud_log_write("[cam] database larger than flash\n"); break; }
+        if (s_capacity < LOG_RESERVE || len > s_capacity - LOG_RESERVE) { hud_log_write("[cam] database does not fit in flash\n"); break; }
         buf = (uint8_t *)heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (!buf) { arduino_printf("[cam] no PSRAM for %u bytes\n", (unsigned)len); break; }
         if (!flash_read(0, buf, len, dma)) { hud_log_write("[cam] flash read failed\n"); break; }
@@ -225,10 +233,19 @@ extern "C" uint32_t hud_cams_max_db_bytes(void)
     if (!s_lock) return 0;
     xSemaphoreTake(s_lock, portMAX_DELAY);
     size_t room = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) + s_db_len;
-    uint32_t cap = flash_open() ? s_capacity : 0;
+    uint32_t cap = (flash_open() && s_capacity > LOG_RESERVE) ? s_capacity - LOG_RESERVE : 0;   /* без области журнала */
     xSemaphoreGive(s_lock);
     if (room > MAX_DB_BYTES) room = MAX_DB_BYTES;
     return cap < room ? cap : (uint32_t)room;
+}
+
+extern "C" bool hud_cams_flash_read(uint32_t addr, uint8_t *dst, size_t n)
+{
+    if (!s_lock || !n) return false;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    bool ok = flash_open() && addr + n <= s_capacity && flash_read(addr, dst, n, s_rd);
+    xSemaphoreGive(s_lock);
+    return ok;
 }
 
 extern "C" bool hud_cams_flash_erase(uint32_t addr)
@@ -275,6 +292,7 @@ extern "C" void hud_cams_start(void) {}
 extern "C" bool hud_cams_ready(void) { return false; }
 extern "C" uint32_t hud_cams_flash_capacity(void) { return 0; }
 extern "C" uint32_t hud_cams_max_db_bytes(void) { return 0; }
+extern "C" bool hud_cams_flash_read(uint32_t, uint8_t *, size_t) { return false; }
 extern "C" bool hud_cams_flash_erase(uint32_t) { return false; }
 extern "C" bool hud_cams_flash_write(uint32_t, const uint8_t *, size_t) { return false; }
 extern "C" bool hud_cams_reload(const uint8_t *, size_t) { return false; }

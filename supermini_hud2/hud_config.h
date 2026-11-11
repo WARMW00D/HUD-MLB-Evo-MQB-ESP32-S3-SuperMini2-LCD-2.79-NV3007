@@ -26,26 +26,14 @@
 #endif
 
 /* ---- Источник данных ----
-   HUD_SRC_BLE  — сырые CAN-кадры от сниффера / BLE-гейта по BLE (протокол ACL)
    HUD_SRC_TWAI — свой трансивер TJA1051T/3 прямо на шине I-CAN,
                   встроенный контроллер TWAI в режиме LISTEN_ONLY
-   HUD_SRC_FAKE — встроенный генератор кадров, для проверки без машины
-   HUD_SRC_AUTO — работают оба: если по своему трансиверу (TWAI) идут кадры —
-                  используется он, BLE отключается; нет кадров по CAN дольше
-                  HUD_AUTO_CAN_HOLD_MS — используется BLE от сниффера / гейта
-   Декодер и экран одни и те же, меняется только откуда приходят кадры. */
-#define HUD_SRC_BLE          0
+   HUD_SRC_FAKE — встроенный генератор кадров, для проверки без машины */
 #define HUD_SRC_TWAI         1
 #define HUD_SRC_FAKE         2
-#define HUD_SRC_AUTO         3
-#define HUD_DATA_SOURCE      HUD_SRC_AUTO
-#define HUD_AUTO_CAN_HOLD_MS 1000   /* AUTO: столько без кадров по CAN — переходим на BLE */
+#define HUD_DATA_SOURCE      HUD_SRC_TWAI
 
-/* BLE-защита: код доступа задаётся в secrets.h (шаблон secrets.example.h).
-   Столько неудач сопряжения подряд — на экране подсказка «сопряжение не принято» */
-#define HUD_BLE_PAIR_MSG_AFTER 3
-
-/* ---- TWAI (для HUD_SRC_TWAI и HUD_SRC_AUTO) ----
+/* ---- TWAI ----
    Super Mini: RX GPIO8, TX GPIO9.
    TJA1051T/3: CRX/RXD -> GPIO8, CTX/TXD -> GPIO9, VCC -> 5V платы,
    VIO и S (Silent) -> 3V3 платы.
@@ -66,11 +54,8 @@
 
 /* 1 = мигать строго по биту *_Kombi_Takt (фаза как на приборке).
    0 = бит такта используется только как признак "поворотник включён",
-       мигаем своим таймером 500/500 мс (на случай рваного такта по BLE). */
+       мигаем своим таймером 500/500 мс (на случай рваного такта). */
 #define HUD_BLINK_FROM_TAKT  1
-
-/* Имя сниффера в эфире */
-#define HUD_SNIFFER_NAME     "S3-CAN-Sniffer"
 
 /* Lane Assist: LDW_02 0x397 (~80 мс). В ACL — интервал, а не onchange:
    при onchange стабильное состояние не присылается, и значок гас бы по таймауту. */
@@ -147,7 +132,7 @@
 /* Допуск превышения, км/ч. Цифры скорости начинают плавно краснеть при
    превышении HUD_OVERSPEED_START % допуска и становятся полностью красными
    на 100 % (по умолчанию: 15 км/ч сверх знака — краснеть начинают, 20 — красные). */
-#define HUD_OVERSPEED_TOL_KMH     20     /* начальный допуск, 0..100 км/ч; затем BLE/NVS */
+#define HUD_OVERSPEED_TOL_KMH     20     /* начальный допуск, 0..100 км/ч; затем NVS */
 #define HUD_OVERSPEED_START       75     /* % допуска */
 
 /* ---- Side Assist (SWA_01, 0x30F) ----
@@ -157,10 +142,8 @@
 #define HUD_SWA               1
 
 /* ---- Журналы в Serial по типам: 1 — печатать, 0 — нет ---- */
-#define HUD_LOG_BLE    1   /* [BLE]  подключение к снифферу, запись и проверка ACL, ошибки   */
 #define HUD_LOG_TWAI   1   /* [TWAI] запуск контроллера, ошибки, восстановление шины        */
-#define HUD_LOG_SRC    1   /* [src]  какой источник сейчас используется (AUTO)              */
-#define HUD_LOG_STAT   0   /* [BLE]/[TWAI] раз в 10 с: кадров, потери, макс. пауза скорости   */
+#define HUD_LOG_STAT   0   /* [TWAI] раз в 10 с: кадров, потери, макс. пауза скорости   */
 #define HUD_LOG_CAN    0   /* [CAN]  раз в 10 с: счётчики и последние данные по каждому ID    */
 #define HUD_LOG_DIM    0   /* [dim]  раз в 10 с: данные Dimmung_01 и выставленная подсветка   */
 #define HUD_LOG_BAP    0   /* [nav]  каждая смена манёвра навигации, неизвестные коды         */

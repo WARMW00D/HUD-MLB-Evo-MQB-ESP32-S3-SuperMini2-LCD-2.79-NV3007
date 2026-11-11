@@ -27,6 +27,11 @@
 #define HUD_FLASH_MISO     13
 #define HUD_FLASH_SPI_HZ   20000000
 
+/* Журнал во флеше W25Q128 (hud_flog.cpp): последние 2 МБ флеши — 4 файла hud.log.NNNN по 512 КБ, кольцом.
+   Скачивается с портала одним .tar. cams.bin занимает начало флеши, на журнал не заходит. */
+#define HUD_FLASH_LOG      1
+#define HUD_FLASH_LOG_HEARTBEAT_S 60   /* строка состояния раз в N секунд (0 — выкл.) */
+
 #define HUD_LCD_ROTATION 1   /* 1 or 3: landscape */
 #define HUD_LCD_INVERT   0
 #define HUD_LCD_MIRROR_X 0   /* 1: mirror the picture horizontally (HUD that is read in a windshield reflection); done in software in flush_cb */
@@ -57,6 +62,5 @@
 #define HUD_PORTAL_MOVE_MS     1000u     /* скорость > 0 дольше этого времени — Wi-Fi выключается (до следующего включения питания) */
 #define HUD_PORTAL_GRACE_MS    60000u    /* после окончания загрузки файла портал закроется через это время */
 #define HUD_PORTAL_TX_QDBM     40        /* Wi-Fi: потолок 10 дБм (реально 8.5 дБм) */
-#define HUD_BLE_TX_DBM         6         /* BLE-клиент сниффера: не выше 10 дБм */
 
 #endif

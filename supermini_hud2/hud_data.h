@@ -1,5 +1,5 @@
 /*
-  hud_data.h — общее состояние HUD между декодером CAN (BLE-задача)
+  hud_data.h — общее состояние HUD между декодером CAN (задача TWAI)
   и отрисовкой (lv_timer внутри задачи LVGL).
 
   Пишет только декодер (can_decode.c), читает только hud_update через
@@ -144,7 +144,7 @@ typedef struct {
     uint8_t  tte_h, tte_min; /* BAP 0x16                                */
 
     uint32_t valid;          /* V_*                                     */
-    bool     link_up;        /* BLE-связь со сниффером                  */
+    bool     link_up;        /* по CAN идут кадры                       */
     uint32_t frames_rx;      /* статистика                              */
     uint32_t batches_lost;   /* пачек с флагом потерь                   */
 } HudData;

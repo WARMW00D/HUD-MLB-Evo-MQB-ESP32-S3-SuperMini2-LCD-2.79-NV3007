@@ -2,9 +2,8 @@
   can_twai_source.cpp — свой CAN-трансивер (Adafruit CAN Pal, TJA1051T/3) на I-CAN
   ------------------------------------------------------------------------------
   Встроенный контроллер TWAI ESP32-S3 в режиме LISTEN_ONLY: ничего не передаёт,
-  не подтверждает кадры (ACK), в шину не вмешивается. Все кадры шины идут в тот
-  же декодер can_decode_frame(), что и кадры от BLE-сниффера. ACL тут не нужен:
-  декодер сам отбрасывает ненужные ID за один switch.
+  не подтверждает кадры (ACK), в шину не вмешивается. Все кадры шины идут в
+  декодер can_decode_frame(). Фильтр не нужен: декодер сам отбрасывает ненужные ID за один switch.
 
   Защита от передачи в шину — в два слоя:
     1. TWAI_MODE_LISTEN_ONLY (контроллер всегда держит TX в рецессиве);
@@ -21,7 +20,7 @@
 #include "hud_source.h"
 #include "hud_log.h"
 
-#if HUD_DATA_SOURCE == HUD_SRC_TWAI || HUD_DATA_SOURCE == HUD_SRC_AUTO
+#if HUD_DATA_SOURCE == HUD_SRC_TWAI
 
 #include "driver/twai.h"
 
@@ -79,7 +78,6 @@ static void twai_task(void *)
                 can_decode_frame(m.identifier, m.extd, m.data, m.data_length_code);
             last_rx = millis();
             frames++;
-            hud_src_twai_frame();
         }
 
         uint32_t now = millis();
@@ -123,4 +121,4 @@ void twai_source_start(void)
     xTaskCreatePinnedToCore(twai_task, "can_twai", 4096, nullptr, 10, nullptr, 1);
 }
 
-#endif  /* HUD_SRC_TWAI || HUD_SRC_AUTO */
+#endif  /* HUD_SRC_TWAI */

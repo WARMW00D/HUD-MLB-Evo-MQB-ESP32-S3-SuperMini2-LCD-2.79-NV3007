@@ -26,7 +26,6 @@
 #include "vze_table.h"
 #include "hud_min_images.h"
 #include "hud_nav_images.h"
-#include "hud_source.h"
 #include "psd_speedlimit.h"
 #include "cam_alert.h"
 #include "hud_cams.h"
@@ -106,7 +105,6 @@ static lv_obj_t *mn_car_box, *mn_car_part[6], *mn_car_under[6];   /* FL FR RL RR
 static lv_obj_t *mn_ps_box, *mn_ps_tri;
 static lv_obj_t *mn_bl_out[2], *mn_bl_fill[2];                        /* поворотники: [0] левый, [1] правый */
 static lv_obj_t *mn_set_num, *mn_set_unit, *mn_lim;
-static lv_obj_t *mn_link, *mn_pair;
 static lv_obj_t *ota_panel, *ota_title, *ota_status, *ota_bar_bg, *ota_bar_fill;
 static volatile uint8_t ota_ui_state;
 static volatile uint32_t ota_ui_received, ota_ui_total;
@@ -682,13 +680,6 @@ static void mn_build(lv_obj_t *scr)
             mn_bl_fill[i] = mn_img(scr, bf[i], bx[i], HUD_PANEL_H - M_BLINK_W, C_BLINK_GRN);
         }
     }
-
-    /* нет связи / сопряжение не удаётся */
-    mn_link = mn_label(scr, LV_FONT_DEFAULT, 0x666666);
-    mn_pair = mn_label(scr, &hud_font_menu, C_ORANGE);
-    lv_label_set_long_mode(mn_pair, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(mn_pair, 300);
-    lv_obj_set_pos(mn_pair, 64, 30);
 }
 
 /* центр текущей зоны скорости, левый и правый края цифр (для знака / камеры) — пишет mn_speed() */
@@ -756,18 +747,7 @@ static void hud_update_cb(lv_timer_t *t)
     const HudTxt *tx = txt();
     uint16_t lim_kmh_for_speed = 0;
 
-    /* --- связь, яркость --- */
-    bool pf = !d.link_up && hud_src_pair_failed();
-    if (pf) set_text(mn_pair, g_lang == HUD_LANG_EN
-        ? "Pairing rejected. Check the CAN gateway passkey."
-        : "Сопряжение не принято. Проверьте код доступа CAN-шлюза.");
-    vis(mn_pair, pf);
-    bool ls = !d.link_up && !pf;
-    if (ls) {
-        set_text(mn_link, LV_SYMBOL_BLUETOOTH " ...");
-        lv_obj_set_pos(mn_link, CX_CENTER - mn_text_w(LV_FONT_DEFAULT, LV_SYMBOL_BLUETOOTH " ...") / 2, 3);
-    }
-    vis(mn_link, ls);
+    /* --- яркость --- */
     update_brightness(&d, now);
 
     /* --- ACC / лимитер (режимы не пересекаются: при лимитере ACC_Status_Anzeige = 0) --- */

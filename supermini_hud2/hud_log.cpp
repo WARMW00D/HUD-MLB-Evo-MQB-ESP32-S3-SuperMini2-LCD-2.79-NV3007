@@ -2,8 +2,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include "hud_log.h"
+#include "hud_flog.h"
 
-void hud_log_write(const char *s) { Serial.print(s); }
+/* Serial + журнал во флеше (hud_flog.cpp) */
+void hud_log_write(const char *s) { Serial.print(s); hud_flog_push(s); }
 void arduino_printf(const char *format, ...)
 {
     char buf[256];
