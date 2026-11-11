@@ -691,6 +691,24 @@ static int mn_speed_axis(void)
     return SPD3_RIGHT - (b - a) / 2;
 }
 static int g_row_cx = CX_CENTER, g_spd_left = CX_CENTER;
+static int g_sign_cx = CX_CENTER;     /* центр знака: середина средней цифры трёхзначной скорости (нолик у «101», «200»), иначе ось */
+
+/* середина чернил цифры idx строки s относительно начала чернил всей строки */
+static int mn_digit_mid(const lv_font_t *f, const char *s, int idx)
+{
+    int adv = 0, a = 0, mid = 0;
+    bool first = true;
+    for (int i = 0; s[i]; i++) {
+        lv_font_glyph_dsc_t g;
+        if (!lv_font_get_glyph_dsc(f, &g, (uint32_t)(uint8_t)s[i], 0)) continue;
+        if (g.box_w > 0) {
+            if (first) { a = adv + g.ofs_x; first = false; }
+            if (i == idx) mid = adv + g.ofs_x + g.box_w / 2;
+        }
+        adv += g.adv_w;
+    }
+    return mid - a;
+}
 
 static void mn_speed(const HudData *d, int ov_opa)
 {
@@ -700,7 +718,7 @@ static void mn_speed(const HudData *d, int ov_opa)
         vis(mn_spd, false);
         for (int i = 0; i < 8; i++) vis(mn_spd_ol[i], false);
         vis(mn_spd_unit, false);
-        g_row_cx = mn_speed_axis(); g_spd_left = g_row_cx;
+        g_row_cx = mn_speed_axis(); g_spd_left = g_row_cx; g_sign_cx = g_row_cx;
         return;
     }
     snprintf(buf, sizeof buf, "%u", spd(d->speed_kmh));
@@ -729,6 +747,7 @@ static void mn_speed(const HudData *d, int ov_opa)
         mn_text_at(mn_spd_unit, &hud_font_munit22, u, ux, top + mn_ink_up(&hud_font_munit22, u));
     }
     g_row_cx = cx; g_spd_left = left;
+    g_sign_cx = strlen(buf) == 3 ? left + mn_digit_mid(&hud_font_mspeed, buf, 1) : cx;
 }
 
 
@@ -929,7 +948,7 @@ static void hud_update_cb(lv_timer_t *t)
         bool sg = !cam && smode != SIGN_HIDE && smode != SIGN_RAW;
         vis(mn_sign, sg);
         if (sg) {
-            lv_obj_set_x(mn_sign, g_row_cx - SIGN_D / 2);
+            lv_obj_set_x(mn_sign, g_sign_cx - SIGN_D / 2);
             bool wr = d.sign_warn && (now % 500) < 250;
             set_bg_color(mn_sign, wr ? C_SIGN_WARN : 0xffffff);
             set_border_color(mn_sign, (smode == SIGN_LIMIT || smode == SIGN_NOOVT) ? C_SIGN_RED : C_GRAY);
