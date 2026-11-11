@@ -44,7 +44,7 @@ extern "C" {
 #define V_SWA    (1u << 26)  /* swa_* (SWA_01 0x30F)              */
 #define V_GPS    (1u << 27)  /* gps_lat/lon/fix/sat (NavPos_01 0x486, 5 Гц)   */
 #define V_HDG    (1u << 28)  /* gps_hdg_x10, gps_hdop_x10 (NavData_01 0x484, 5 Гц) */
-#define V_STREET (1u << 29)  /* street — название улицы (BAP Navigation_SD fct 0x13/0x14) */
+#define V_STREET (1u << 29)  /* street — название улицы (BAP Navigation_SD fct 0x14) */
 
 #define BLINK_L_TAKT  0x01
 #define BLINK_R_TAKT  0x02

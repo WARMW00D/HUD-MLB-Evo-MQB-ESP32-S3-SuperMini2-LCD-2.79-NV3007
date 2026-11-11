@@ -297,7 +297,6 @@ static int street_parse(const uint8_t *p, uint16_t n, char *dst)
     dst[k] = 0;
     return k;
 }
-static uint32_t s_street_short_t;                         /* когда пришла короткая форма */
 
 static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
 {
@@ -348,16 +347,11 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
             }
         }
         break;
-    case 0x13: /* название улицы, полное («Крылатская улица») */
-    case 0x14: /* название улицы, короткое («ул. Ленина», как на указателях) — предпочтительнее */
+    case 0x14: /* название улицы, короткое («ул. Ленина», как на указателях) */
     {
         char tmp[64];
         if (street_parse(p, n, tmp) > 0) {          /* пустые строки приходят между обновлениями — игнорируем */
-            uint32_t t = hud_now_ms();
-            if (fct == 0x14) { memcpy(s_data.street, tmp, sizeof tmp); s_street_short_t = t ? t : 1; }
-            else {
-                if (!s_street_short_t || (int32_t)(t - s_street_short_t) >= TO_STREET) memcpy(s_data.street, tmp, sizeof tmp);
-            }
+            memcpy(s_data.street, tmp, sizeof tmp);
             touch(S_STREET);
         }
         break;
