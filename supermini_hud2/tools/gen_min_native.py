@@ -256,7 +256,10 @@ def gen_fonts(only=()):
         if isinstance(size, tuple): size = digit_size(font, size[1])
         out = os.path.join(OUT, name + ".c")
         chars = ["--range", symbols[6:]] if symbols.startswith("range:") else ["--symbols", symbols]
-        subprocess.run(["lv_font_conv", "--font", font, "--size", str(size), "--bpp", "4", "--format", "lvgl"] + chars +
+        extra = []
+        if name == "hud_font_mstreet":      # стрелка «→» (SignPost) — нет в Roboto Condensed, берём из Montserrat Bold
+            extra = ["--font", os.path.join(FD, "Montserrat-Bold.ttf"), "--range", "0x2192"]
+        subprocess.run(["lv_font_conv", "--font", font, "--size", str(size), "--bpp", "4", "--format", "lvgl"] + chars + extra +
                        ["-o", out, "--force-fast-kern-format", "--no-prefilter"], check=True)
         s = open(out, encoding="utf-8").read()
         s = s.replace("#ifdef LV_LVGL_H_INCLUDE_SIMPLE", "#define LV_LVGL_H_INCLUDE_SIMPLE\n#ifdef LV_LVGL_H_INCLUDE_SIMPLE", 1)

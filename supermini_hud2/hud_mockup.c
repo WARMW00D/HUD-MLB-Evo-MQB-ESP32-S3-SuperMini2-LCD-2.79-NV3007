@@ -98,10 +98,13 @@ extern "C" {
 #define STREET_X     2       /* название улицы над стрелкой: бегущая строка в окне STREET_W x 22 */
 #define STREET_Y     3       /* стрелка начинается с y = ARROW_Y + 9 = 27                         */
 #define STREET_W     138     /* справа начинаются цифры «200» (x = 144)                           */
+#define PREV_SIZE    26      /* превью второго манёвра: значок вписан в квадрат PREV_SIZE, справа от расстояния */
+#define PREV_GAP     7
+#define PREV_RIGHT   150     /* правее — камера / знак                                              */
 #define STREET_SPEED 35      /* px/с бегущей строки                                               */
 
 /* ---------- хэндлы ---------- */
-static lv_obj_t *mn_arrow, *mn_dist_num, *mn_dist_unit, *mn_calc, *mn_street;
+static lv_obj_t *mn_arrow, *mn_arrow2, *mn_dist_num, *mn_dist_unit, *mn_calc, *mn_street;
 static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol[8];   /* mn_spd_ol — красная обводка цифр скорости при превышении */
 static lv_obj_t *mn_sign, *mn_sign_lbl, *mn_sign_end, *mn_sign_car_l, *mn_sign_car_r;
 static lv_obj_t *mn_cam_sq, *mn_cam_disc, *mn_cam_lbl, *mn_cam_eye, *mn_cam_dist;
@@ -568,12 +571,55 @@ static lv_obj_t *mn_disc(lv_obj_t *parent, int d, int ring, int x, int y)
     return o;
 }
 
+/* Уменьшение индексной стрелки (INDEXED_4BIT, палитра впереди данных) до PREV_SIZE: LVGL не масштабирует индексные
+   картинки, поэтому один раз при смене манёвра усредняем пиксели в RAM-буфер TRUE_COLOR_ALPHA. */
+static uint8_t       mn_prev_buf[PREV_SIZE * PREV_SIZE * LV_IMG_PX_SIZE_ALPHA_BYTE];
+static lv_img_dsc_t  mn_prev_dsc;
+static void mn_prev_build(const lv_img_dsc_t *src)
+{
+    const uint8_t *pal = src->data, *px = src->data + 16 * 4;
+    int iw = src->header.w, ih = src->header.h, stride = (iw + 1) / 2;
+    int big = iw > ih ? iw : ih;
+    int ow = (iw * PREV_SIZE + big - 1) / big, oh = (ih * PREV_SIZE + big - 1) / big;
+    if (ow < 1) ow = 1;
+    if (oh < 1) oh = 1;
+    for (int y = 0; y < oh; y++) {
+        int y0 = y * ih / oh, y1 = (y + 1) * ih / oh; if (y1 <= y0) y1 = y0 + 1;
+        for (int x = 0; x < ow; x++) {
+            int x0 = x * iw / ow, x1 = (x + 1) * iw / ow; if (x1 <= x0) x1 = x0 + 1;
+            uint32_t r = 0, g = 0, b = 0, n = 0, on = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++) {
+                    uint8_t v = (px[yy * stride + xx / 2] >> ((xx & 1) ? 0 : 4)) & 15;
+                    n++;
+                    if (!v) continue;
+                    on++; b += pal[v * 4]; g += pal[v * 4 + 1]; r += pal[v * 4 + 2];
+                }
+            lv_color_t c = on ? lv_color_make((uint8_t)(r / on), (uint8_t)(g / on), (uint8_t)(b / on)) : lv_color_black();
+            uint8_t a = (uint8_t)(on * 255 / n);
+            uint8_t *o = &mn_prev_buf[(y * ow + x) * LV_IMG_PX_SIZE_ALPHA_BYTE];
+            memcpy(o, &c, sizeof c);
+            o[sizeof c] = a;
+        }
+    }
+    mn_prev_dsc.header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+    mn_prev_dsc.header.always_zero = 0;
+    mn_prev_dsc.header.reserved = 0;
+    mn_prev_dsc.header.w = (uint32_t)ow;
+    mn_prev_dsc.header.h = (uint32_t)oh;
+    mn_prev_dsc.data_size = (uint32_t)(ow * oh * LV_IMG_PX_SIZE_ALPHA_BYTE);
+    mn_prev_dsc.data = mn_prev_buf;
+}
+
 static void mn_build(lv_obj_t *scr)
 {
     /* левая зона: стрелка манёвра и расстояние */
     mn_arrow = lv_img_create(scr);
     lv_img_set_src(mn_arrow, nav_big.turn[0].img);
     lv_obj_add_flag(mn_arrow, LV_OBJ_FLAG_HIDDEN);
+    mn_arrow2 = lv_img_create(scr);
+    lv_img_set_src(mn_arrow2, nav_big.turn[0].img);
+    lv_obj_add_flag(mn_arrow2, LV_OBJ_FLAG_HIDDEN);
     mn_dist_num  = mn_label(scr, &hud_font_mdist, 0xffffff);
     mn_dist_unit = mn_label(scr, &hud_font_munit20, C_UNIT_SMALL);
     mn_calc      = mn_label(scr, &hud_font_mdist, C_GRAY);
@@ -786,7 +832,13 @@ static void hud_update_cb(lv_timer_t *t)
     /* --- название улицы над стрелкой --- */
     {
         bool st = g_street_on && (d.valid & V_STREET) && d.street[0] && (d.valid & V_MAN) && d.rg_active == 1;   /* пока идёт ведение по маршруту */
-        if (st) set_text(mn_street, d.street);
+        if (st) {                                   /* «улица → направление» одной бегущей строкой */
+            char line[112];
+            if (d.signpost[0] && d.street[0]) snprintf(line, sizeof line, "%s  \xE2\x86\x92  %s", d.street, d.signpost);
+            else if (d.signpost[0])           snprintf(line, sizeof line, "\xE2\x86\x92  %s", d.signpost);
+            else                              snprintf(line, sizeof line, "%s", d.street);
+            set_text(mn_street, line);
+        }
         vis(mn_street, st);
     }
 
@@ -904,6 +956,7 @@ static void hud_update_cb(lv_timer_t *t)
         }
         last = ni;
         vis(mn_arrow, show);
+        static const NavImg *last2 = NULL;
         bool dv = show && (d.valid & V_MDIST);
         if (dv) {
             char s[24];
@@ -916,9 +969,23 @@ static void hud_update_cb(lv_timer_t *t)
             int left;
             int w = mn_digits(mn_dist_num, &hud_font_mdist, num, CX_LEFT, DIST_BASE, &left);
             mn_text_at(mn_dist_unit, &hud_font_munit20, unit, left + w + 5, DIST_BASE);
+            /* превью второго манёвра — справа от расстояния (не для «следуй по дороге» и расчёта) */
+            const NavImg *n2 = (d.man2_main != 0x0B) ? nav_pick(&nav_big, d.man2_main, d.man2_dir) : NULL;
+            int px = left + w + 5 + mn_text_w(&hud_font_munit20, unit) + PREV_GAP;
+            if (n2 && px + 8 < PREV_RIGHT) {
+                if (n2 != last2) {
+                    mn_prev_build(n2->img);
+                    lv_img_set_src(mn_arrow2, &mn_prev_dsc);
+                    lv_obj_invalidate(mn_arrow2);
+                    last2 = n2;
+                }
+                lv_obj_set_pos(mn_arrow2, px, DIST_BASE - (int)mn_prev_dsc.header.h);
+                vis(mn_arrow2, true);
+            } else vis(mn_arrow2, false);
         } else {
             vis(mn_dist_num, false);
             vis(mn_dist_unit, false);
+            vis(mn_arrow2, false);
         }
         if (nav && calc) mn_digits(mn_calc, &hud_font_mdist, "...", CX_LEFT, 60, NULL);
         else             vis(mn_calc, false);

@@ -62,9 +62,11 @@ static void fake_task(void *)
             const int i = (int)((t / 12000) % 4);
             if (i != idx || t - last > 10000) {
                 idx = i; last = t;
-                uint8_t p[66]; const size_t L = strlen(streets[i]);
+                static const char *const signs[] = { "", "Рублёво-Успенское ш.", "Шереметьево", "" };
+                uint8_t p[110]; const size_t L = strlen(streets[i]), M = strlen(signs[i]);
                 p[0] = (uint8_t)L; memcpy(p + 1, streets[i], L); p[1 + L] = 0;
-                bap_send_multi(1, 0x14, p, (uint8_t)(L + 2));
+                p[2 + L] = (uint8_t)M; memcpy(p + 3 + L, signs[i], M); p[3 + L + M] = 0;
+                bap_send_multi(1, 0x14, p, (uint8_t)(L + M + 4));
             }
         }
 

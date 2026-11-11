@@ -144,6 +144,7 @@ typedef struct {
     uint8_t  tte_type;       /* 0 время в пути, 1 время прибытия        */
     uint8_t  tte_h, tte_min; /* BAP 0x16                                */
 
+    char     signpost[32];   /* SignPost (направление), вторая строка fct 0x14; пустая — нет */
     char     street[64];     /* название улицы, UTF-8 (пустая строка — нет) */
     uint32_t valid;          /* V_*                                     */
     bool     link_up;        /* по CAN идут кадры                       */

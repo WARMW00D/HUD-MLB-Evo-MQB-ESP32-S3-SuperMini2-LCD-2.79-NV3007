@@ -298,6 +298,26 @@ static int street_parse(const uint8_t *p, uint16_t n, char *dst)
     return k;
 }
 
+/* Вторая строка (SignPost) идёт сразу за первой. Длина первой может считаться с NUL или без — терпим оба варианта. */
+static int signpost_parse(const uint8_t *p, uint16_t n, char *dst)
+{
+    dst[0] = 0;
+    if (n < 1) return 0;
+    uint16_t off = (uint16_t)(1 + p[0]);
+    if (off > n) return 0;
+    if (p[0] > 0 && p[off - 1] != 0 && off < n && p[off] == 0) off++;   /* NUL вне длины */
+    if (off >= n) return 0;
+    char tmp[64];
+    int k = street_parse(p + off, (uint16_t)(n - off), tmp);
+    if (k > 30) {                                                       /* SignPost по спеке ≤ 30 байт */
+        k = 30;
+        while (k > 0 && ((uint8_t)tmp[k] & 0xC0) == 0x80) k--;
+        tmp[k] = 0;
+    }
+    memcpy(dst, tmp, (size_t)k + 1);
+    return k;
+}
+
 static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
 {
     uint8_t opcode = (hdr >> 12) & 7;
@@ -312,7 +332,7 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
     case 0x11: /* RG_Status */
         if (n >= 1) {
             s_data.rg_active = p[0]; touch(S_MAN);
-            if (p[0] != 1) { s_data.street[0] = 0; s_last[S_STREET] = 0; }   /* маршрут закончился — название улицы убрать */
+            if (p[0] != 1) { s_data.street[0] = 0; s_data.signpost[0] = 0; s_last[S_STREET] = 0; }   /* маршрут закончился — название улицы убрать */
         }
         break;
     case 0x12: /* DistanceToNextManeuver */
@@ -352,9 +372,12 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
         break;
     case 0x14: /* название улицы, короткое («ул. Ленина», как на указателях) */
     {
-        char tmp[64];
-        if (street_parse(p, n, tmp) > 0) {          /* пустые строки приходят между обновлениями — игнорируем */
+        char tmp[64], sp[32];
+        int a = street_parse(p, n, tmp);
+        int b = signpost_parse(p, n, sp);
+        if (a > 0 || b > 0) {                       /* пустые строки приходят между обновлениями — игнорируем */
             memcpy(s_data.street, tmp, sizeof tmp);
+            memcpy(s_data.signpost, sp, sizeof sp);
             touch(S_STREET);
         }
         break;
