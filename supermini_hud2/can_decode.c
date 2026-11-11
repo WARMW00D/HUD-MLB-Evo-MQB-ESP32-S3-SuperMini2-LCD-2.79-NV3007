@@ -40,7 +40,7 @@
 #define TO_RLS     1500
 #define TO_SWA     1000
 #define TO_GPS     1500    /* NavPos_01 / NavData_01: 5 Гц */
-#define TO_STREET  40000   /* название улицы: BAP шлёт его при смене и в heartbeat (~13 с) */
+#define TO_STREET  0x7FFFFFFF   /* название улицы живёт до конца маневра (сбрасывается по RG_Status), а не по таймеру */
 #define TO_WHEEL   3000    /* BCM1_04: раз в 1 с в покое, 50-60 мс при вращении */   /* BAP_BC: 0x18 раз в ~4 с при изменении, остальное — heartbeat ~25 с */
 
 enum { S_SPEED, S_ACC, S_GEAR, S_BLINK, S_SIGN, S_MAN, S_MDIST, S_DEST, S_TTE, S_LKA, S_DOORS, S_HOOD, S_GNUM, S_JAM, S_LIM, S_AWV, S_DIM, S_ACCEL, S_SPDACC, S_BRAKE, S_FUEL, S_RESERVED21, S_BC, S_BCFUEL, S_RLS, S_WHEEL, S_SWA, S_GPS, S_HDG, S_STREET, S_COUNT };
@@ -310,7 +310,10 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
     taskENTER_CRITICAL(&s_mux);
     switch (fct) {
     case 0x11: /* RG_Status */
-        if (n >= 1) { s_data.rg_active = p[0]; touch(S_MAN); }
+        if (n >= 1) {
+            s_data.rg_active = p[0]; touch(S_MAN);
+            if (p[0] != 1) { s_data.street[0] = 0; s_last[S_STREET] = 0; }   /* маршрут закончился — название улицы убрать */
+        }
         break;
     case 0x12: /* DistanceToNextManeuver */
         if (n >= 8) {

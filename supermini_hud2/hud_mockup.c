@@ -785,7 +785,7 @@ static void hud_update_cb(lv_timer_t *t)
 
     /* --- название улицы над стрелкой --- */
     {
-        bool st = g_street_on && (d.valid & V_STREET) && d.street[0];
+        bool st = g_street_on && (d.valid & V_STREET) && d.street[0] && (d.valid & V_MAN) && d.rg_active == 1;   /* пока идёт ведение по маршруту */
         if (st) set_text(mn_street, d.street);
         vis(mn_street, st);
     }
