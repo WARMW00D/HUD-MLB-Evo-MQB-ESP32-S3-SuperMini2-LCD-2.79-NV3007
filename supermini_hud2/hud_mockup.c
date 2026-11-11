@@ -13,7 +13,6 @@
 #include "lvgl.h"
 #include "esp_system.h"
 #include <stdio.h>
-#include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -98,9 +97,8 @@ extern "C" {
 #define STREET_X     2       /* название улицы над стрелкой: бегущая строка в окне STREET_W x 22 */
 #define STREET_Y     3       /* стрелка начинается с y = ARROW_Y + 9 = 27                         */
 #define STREET_W     138     /* справа начинаются цифры «200» (x = 144)                           */
-#define PREV_SIZE    13      /* превью второго манёвра: значок вписан в квадрат PREV_SIZE, справа от расстояния */
 #define PREV_GAP     7
-#define PREV_RIGHT   150     /* правее — камера / знак                                              */
+#define PREV_RIGHT   152     /* правее — камера / знак                                              */
 #define STREET_SPEED 35      /* px/с бегущей строки                                               */
 
 /* ---------- хэндлы ---------- */
@@ -571,96 +569,6 @@ static lv_obj_t *mn_disc(lv_obj_t *parent, int d, int ring, int x, int y)
     return o;
 }
 
-/* Схематичная стрелка превью второго манёвра: линия + наконечник (4x4 суперсэмплинг в RAM-буфер TRUE_COLOR_ALPHA).
-   Строится один раз при смене манёвра. Координаты — в пикселях квадрата PREV_SIZE, y вниз. */
-#define PV_COLOR 0xFFFFFF
-#define PV_D     26.0f                     /* рисунок задан на сетке 26x26 и сжимается до PREV_SIZE */
-#define PV_HALF  2.3f                      /* половина толщины линии */
-typedef struct { float x0, y0, x1, y1; } pv_seg;
-static uint8_t       mn_prev_buf[PREV_SIZE * PREV_SIZE * LV_IMG_PX_SIZE_ALPHA_BYTE];
-static lv_img_dsc_t  mn_prev_dsc;
-
-static float pv_dseg(float px, float py, const pv_seg *s)
-{
-    float dx = s->x1 - s->x0, dy = s->y1 - s->y0, l2 = dx * dx + dy * dy;
-    float t = l2 > 0 ? ((px - s->x0) * dx + (py - s->y0) * dy) / l2 : 0;
-    if (t < 0) t = 0; else if (t > 1) t = 1;
-    float ex = s->x0 + t * dx - px, ey = s->y0 + t * dy - py;
-    return sqrtf(ex * ex + ey * ey);
-}
-static float pv_sgn(float px, float py, float ax, float ay, float bx, float by) { return (px - bx) * (ay - by) - (ax - bx) * (py - by); }
-static bool pv_tri(float px, float py, const float *t)
-{
-    float d1 = pv_sgn(px, py, t[0], t[1], t[2], t[3]), d2 = pv_sgn(px, py, t[2], t[3], t[4], t[5]), d3 = pv_sgn(px, py, t[4], t[5], t[0], t[1]);
-    bool neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
-    return !(neg && pos);
-}
-
-static void mn_prev_build(uint8_t main, uint8_t dir)
-{
-    pv_seg sg[4]; int ns = 0;
-    float hd[6]; bool head = true, ring = false;
-    const float cx = PV_D / 2.0f, cy = PV_D * 0.58f;
-    float ang = dir * 6.2831853f / 256.0f;                    /* против часовой от «прямо» */
-    bool uturn = false;
-    switch (main) {
-    case 0x15: case 0x16: ring = true; break;
-    case 0x19: uturn = true; break;
-    case 0x03: head = false; ring = true; break;               /* прибытие — кружок */
-    case 0x0F: case 0x10: case 0x13: case 0x14: {              /* съезд: ±40° */
-        bool right = (main == 0x0F) || (main == 0x13) ? true : false;
-        if (main == 0x13 || main == 0x14) right = (dir == 0) ? (main == 0x13) : dir > 0x80;
-        ang = (right ? -1 : 1) * 0.70f; break; }
-    default: break;
-    }
-    float ex, ey, ux, uy;
-    if (uturn) {
-        bool right = dir > 0x80 || (dir == 0 && false);
-        float sx = right ? 1.0f : -1.0f, w = 5.0f;
-        sg[ns++] = (pv_seg){ cx + sx * w * 0.0f - sx * w * 0.5f, PV_D - 2.0f, cx - sx * w * 0.5f, 6.0f };
-        sg[ns++] = (pv_seg){ cx - sx * w * 0.5f, 6.0f, cx + sx * w * 1.2f, 6.0f };
-        sg[ns++] = (pv_seg){ cx + sx * w * 1.2f, 6.0f, cx + sx * w * 1.2f, 14.0f };
-        ex = cx + sx * w * 1.2f; ey = 14.0f; ux = 0; uy = 1;
-    } else {
-        ux = -sinf(ang); uy = -cosf(ang);
-        float arm = ring ? 6.0f : 8.0f;
-        ex = cx + ux * arm; ey = cy + uy * arm;
-        sg[ns++] = (pv_seg){ cx, PV_D - 2.0f, cx, cy };
-        if (!ring || head) sg[ns++] = (pv_seg){ cx, cy, ex, ey };
-        if (!head) { ex = cx; ey = cy; }
-    }
-    if (head) {                                               /* наконечник: основание в (ex,ey), остриё на 5 px дальше */
-        float nx = -uy, ny = ux, bw = 4.2f, hl = 5.5f;
-        hd[0] = ex + ux * hl; hd[1] = ey + uy * hl;
-        hd[2] = ex + nx * bw; hd[3] = ey + ny * bw;
-        hd[4] = ex - nx * bw; hd[5] = ey - ny * bw;
-    }
-    lv_color_t c = lv_color_hex(PV_COLOR);
-    for (int y = 0; y < PREV_SIZE; y++)
-        for (int x = 0; x < PREV_SIZE; x++) {
-            int on = 0;
-            for (int j = 0; j < 4; j++)
-                for (int i = 0; i < 4; i++) {
-                    float px = (x + (i + 0.5f) / 4) * (PV_D / PREV_SIZE), py = (y + (j + 0.5f) / 4) * (PV_D / PREV_SIZE);
-                    bool hit = false;
-                    for (int k = 0; k < ns && !hit; k++) hit = pv_dseg(px, py, &sg[k]) <= PV_HALF;
-                    if (!hit && head) hit = pv_tri(px, py, hd);
-                    if (!hit && ring) { float dx = px - cx, dy = py - cy, r = sqrtf(dx * dx + dy * dy); hit = fabsf(r - 4.5f) <= 1.2f; }
-                    on += hit;
-                }
-            uint8_t *o = &mn_prev_buf[(y * PREV_SIZE + x) * LV_IMG_PX_SIZE_ALPHA_BYTE];
-            memcpy(o, &c, sizeof c);
-            o[sizeof c] = (uint8_t)(on * 255 / 16);
-        }
-    mn_prev_dsc.header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
-    mn_prev_dsc.header.always_zero = 0;
-    mn_prev_dsc.header.reserved = 0;
-    mn_prev_dsc.header.w = PREV_SIZE;
-    mn_prev_dsc.header.h = PREV_SIZE;
-    mn_prev_dsc.data_size = PREV_SIZE * PREV_SIZE * LV_IMG_PX_SIZE_ALPHA_BYTE;
-    mn_prev_dsc.data = mn_prev_buf;
-}
-
 static void mn_build(lv_obj_t *scr)
 {
     /* левая зона: стрелка манёвра и расстояние */
@@ -669,6 +577,8 @@ static void mn_build(lv_obj_t *scr)
     lv_obj_add_flag(mn_arrow, LV_OBJ_FLAG_HIDDEN);
     mn_arrow2 = lv_img_create(scr);
     lv_img_set_src(mn_arrow2, nav_big.turn[0].img);
+    lv_obj_set_style_img_recolor(mn_arrow2, lv_color_white(), 0);
+    lv_obj_set_style_img_recolor_opa(mn_arrow2, LV_OPA_COVER, 0);
     lv_obj_add_flag(mn_arrow2, LV_OBJ_FLAG_HIDDEN);
     mn_dist_num  = mn_label(scr, &hud_font_mdist, 0xffffff);
     mn_dist_unit = mn_label(scr, &hud_font_munit20, C_UNIT_SMALL);
@@ -1006,7 +916,7 @@ static void hud_update_cb(lv_timer_t *t)
         }
         last = ni;
         vis(mn_arrow, show);
-        static uint16_t last2 = 0xFFFF;
+        static const NavImg *last2 = NULL;
         bool dv = show && (d.valid & V_MDIST);
         if (dv) {
             char s[24];
@@ -1020,17 +930,14 @@ static void hud_update_cb(lv_timer_t *t)
             int w = mn_digits(mn_dist_num, &hud_font_mdist, num, CX_LEFT, DIST_BASE, &left);
             mn_text_at(mn_dist_unit, &hud_font_munit20, unit, left + w + 5, DIST_BASE);
             /* превью второго манёвра — справа от расстояния (не для «следуй по дороге» и расчёта) */
-            const NavImg *n2 = (d.man2_main != 0x0B) ? nav_pick(&nav_big, d.man2_main, d.man2_dir) : NULL;
+            const NavImg *n2 = (d.man2_main != 0x0B) ? nav_pick(&nav_small, d.man2_main, d.man2_dir) : NULL;
             int px = left + w + 5 + mn_text_w(&hud_font_munit20, unit) + PREV_GAP;
-            if (n2 && px + 8 < PREV_RIGHT) {
-                uint16_t key2 = (uint16_t)(d.man2_main << 8 | d.man2_dir);
-                if (key2 != last2) {
-                    mn_prev_build(d.man2_main, d.man2_dir);
-                    lv_img_set_src(mn_arrow2, &mn_prev_dsc);
-                    lv_obj_invalidate(mn_arrow2);
-                    last2 = key2;
+            if (n2 && px + n2->img->header.w <= PREV_RIGHT) {
+                if (n2 != last2) {
+                    lv_img_set_src(mn_arrow2, n2->img);
+                    last2 = n2;
                 }
-                lv_obj_set_pos(mn_arrow2, px, DIST_BASE - (int)mn_prev_dsc.header.h);
+                lv_obj_set_pos(mn_arrow2, px, DIST_BASE - NAV_SMALL_H + n2->y);
                 vis(mn_arrow2, true);
             } else vis(mn_arrow2, false);
         } else {

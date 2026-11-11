@@ -9,6 +9,9 @@
 typedef struct { const lv_img_dsc_t *img; int16_t x, y; } NavImg;   /* x,y — смещение картинки в области стрелки */
 typedef struct { const NavImg *turn, *round, *exit, *fork, *uturn, *arrived; } NavSet;
 
+#define NAV_SMALL_W 38
+#define NAV_SMALL_H 23
+extern const NavSet nav_small;  /* следующий манёвр: маски (hud_nav_small.c), цвет — img_recolor */
 extern const NavSet nav_big;   /* turn[16] — сектор 22.5 град против часовой от «прямо»; round[16]; exit/fork/uturn: [0] налево, [1] направо */
 
 #endif
