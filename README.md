@@ -70,6 +70,25 @@ Maneuver_2 из BAP 0x17 («а потом поворот направо») ри�
 
 Сборка: Arduino IDE, папка `supermini_hud2/`, плата ESP32-S3, партиции `partitions.csv`, библиотеки: LVGL 8.4.0, GFX Library for Arduino (NimBLE-Arduino больше не нужна).
 
+## Схемы
+
+Схемы доработаны от первой версии проекта: BLE и Android-приложения нет, вместо них Wi-Fi-портал с любого телефона.
+
+**Общая схема** — что с чем связано и сколько живёт портал:
+
+![общая схема](schematics/HUD_supermini2_overview_ru.png)
+
+**Подключение** (GPIO из `user_config.h` / `hud_config.h`; цвета проводов CAN для MLB-Evo и MQB; динамик, W25Q128, датчик света):
+
+![подключение](schematics/HUD_supermini2_wiring_ru.png)
+
+[SVG](schematics/HUD_supermini2_wiring_ru.svg) · [PDF](schematics/HUD_supermini2_wiring_ru.pdf) · [English: SVG](schematics/HUD_supermini2_wiring_en.svg) · [PDF](schematics/HUD_supermini2_wiring_en.pdf) · [overview EN](schematics/HUD_supermini2_overview_en.png)
+
+Дополнительно:
+
+* [Делитель фоторезистора](schematics/HUD_light_sensor_divider_supermini_ru.svg) (EN: [svg](schematics/HUD_light_sensor_divider_supermini_en.svg)) — вывод на `HUD_LDR_PIN` (по умолчанию GPIO14, ADC2). ADC2 нельзя надёжно читать, пока включён Wi-Fi: датчик нужен в пути, когда портал уже выключен.
+* [Доработка WeAct CANFD: аппаратный режим «только приём»](schematics/weact_canfd_mod.md) (RU + EN).
+
 ## Симулятор
 
 `tools/hud_sim_win/` — программа для Windows: проигрывает логи сниффера в тот же код экрана, с окном карты (Яндекс / 2ГИС / OSM). Подробности — [README](tools/hud_sim_win/README.md), [README_EN](tools/hud_sim_win/README_EN.md).

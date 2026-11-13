@@ -70,6 +70,25 @@ Everything the HUD writes to Serial is duplicated into the last 2 MB of the W25Q
 
 Build: Arduino IDE, folder `supermini_hud2/`, board ESP32-S3, partitions `partitions.csv`, libraries: LVGL 8.4.0, GFX Library for Arduino (NimBLE-Arduino is no longer needed).
 
+## Schematics
+
+Redrawn from the first version of the project: no BLE and no Android app — a Wi-Fi portal that works from any phone instead.
+
+**System overview** — what talks to what and how long the portal lives:
+
+![overview](schematics/HUD_supermini2_overview_en.png)
+
+**Wiring** (GPIOs from `user_config.h` / `hud_config.h`; CAN wire colours for MLB-Evo and MQB; speaker, W25Q128, light sensor):
+
+![wiring](schematics/HUD_supermini2_wiring_en.png)
+
+[SVG](schematics/HUD_supermini2_wiring_en.svg) · [PDF](schematics/HUD_supermini2_wiring_en.pdf) · [Russian: SVG](schematics/HUD_supermini2_wiring_ru.svg) · [PDF](schematics/HUD_supermini2_wiring_ru.pdf) · [overview RU](schematics/HUD_supermini2_overview_ru.png)
+
+Also:
+
+* [Photoresistor divider](schematics/HUD_light_sensor_divider_supermini_en.svg) (RU: [svg](schematics/HUD_light_sensor_divider_supermini_ru.svg)) — output to `HUD_LDR_PIN` (default GPIO14, ADC2). ADC2 cannot be read reliably while Wi-Fi is on: the sensor matters while driving, when the portal is already off.
+* [WeAct CANFD mod: hardware listen-only](schematics/weact_canfd_mod.md) (RU + EN).
+
 ## Simulator
 
 `tools/hud_sim_win/` — a Windows program that plays CAN sniffer logs into the very same screen code, with a map window (Yandex / 2GIS / OSM). See [README_EN](tools/hud_sim_win/README_EN.md).
