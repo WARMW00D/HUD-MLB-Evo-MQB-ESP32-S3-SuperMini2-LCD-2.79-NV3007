@@ -2,6 +2,14 @@
 
 [Русская версия: README.md](README.md) · Firmware version **1.0.0**
 
+> [!NOTE]
+> ### A reworked version of [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE)
+> This is the **second generation** of the project — the same hardware and idea, but the screen and the software side were rethought from scratch:
+>
+> * **A new screen design.** One clean minimal mode at 428×142 in native coordinates: large speed, speed-limit sign, maneuver arrow with distance, the street name as a marquee and a preview of the next maneuver, ACC and cameras.
+> * **Simpler inside.** No BLE and no Android app, no full mode and no arrow animation; data comes from CAN only, while settings, OTA, the camera database and the log go through a Wi-Fi portal from any phone.
+> * **Less code, more checks.** Flash log, host-side tests of the core and a PC simulator that runs the very same screen code on real logs.
+
 A HUD for the Audi A4 B9 (MLB-Evo, MQB signals also supported) on an ESP32-S3 SuperMini with an NV3007 428×142 display. Second generation of the
 [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE) project:
 
