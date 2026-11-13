@@ -57,7 +57,7 @@ static void serve(SOCKET c)
         json_str(y, sizeof y, s_ykey); json_str(g, sizeof g, s_gkey);
         int m = snprintf(b, sizeof b, "{\"yandex_key\":\"%s\",\"gis_key\":\"%s\"}", y, g);
         reply(c, "200 OK", "application/json", b, m);
-    } else if (strncmp(rq, "GET / ", 6) == 0 || strncmp(rq, "GET /index", 10) == 0 || strncmp(rq, "GET /map", 8) == 0) {
+    } else if (strncmp(rq, "GET / ", 6) == 0 || strncmp(rq, "GET /?", 6) == 0 || strncmp(rq, "GET /index", 10) == 0 || strncmp(rq, "GET /map", 8) == 0) {
         FILE *f = _wfopen(s_html, L"rb");
         if (!f) { const char *e = "map.html не найден рядом с hud_sim.exe"; reply(c, "404 Not Found", "text/plain; charset=utf-8", e, (int)strlen(e)); return; }
         fseek(f, 0, SEEK_END); long len = ftell(f); fseek(f, 0, SEEK_SET);

@@ -59,7 +59,7 @@ Without a database no cameras are shown.
 
 ![Map window](screens/sim_map.png)
 
-The "Карта" button (key K, "View" menu) opens a separate window (Edge/Chrome in app mode, otherwise the default browser).
+The "Map" button (key K, "View" menu) opens a separate window (Edge/Chrome in app mode, otherwise the default browser).
 `hud_sim.exe` itself starts a local server on `127.0.0.1:8765` (the port is `[map] port` in `hud_sim.ini`; if busy, the next one is taken) and serves the `map.html` page (it lies next to the exe and can be edited without rebuilding)
 and the current coordinates from the log (CAN 0x486 NavPos_01 + heading from 0x484), so the position moves together with playback and seeking.
 
@@ -106,3 +106,10 @@ backlight brightness): the frame is the 16-bit RGB565 LVGL output, as in the fir
 | `sim_headless.c` | `hud_shot`: one frame to BMP without a window |
 | `sim_decode_mlb.c`, `sim_decode_mqb.c` | `can_decode.c` for the two platforms |
 | `lv_conf.h`, `shim/` | LVGL config and stub headers for ESP-IDF / FreeRTOS |
+
+## Interface language
+
+The simulator UI (buttons, menus, status lines, log, settings window, map window) is available in Russian and English.
+Switch via the "View" menu → "Interface language" (Русский / English); it applies immediately and is stored in `hud_sim.ini`
+(`[ui] lang=0` — Russian, `1` — English). Until chosen manually, the Windows UI language is used (Russian, Ukrainian, Belarusian → Russian, otherwise English).
+This is not the HUD screen language — that one is set in the "HUD settings" window ("HUD language" field).
