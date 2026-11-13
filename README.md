@@ -1,5 +1,7 @@
 # supermini_hud2
 
+[English version: README_EN.md](README_EN.md) · Версия прошивки **1.0.0**
+
 HUD для Audi A4 B9 (MLB-Evo) на ESP32-S3 SuperMini + NV3007 428×142. Второе поколение проекта
 [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE):
 
@@ -7,6 +9,21 @@ HUD для Audi A4 B9 (MLB-Evo) на ESP32-S3 SuperMini + NV3007 428×142. Вт�
 * без BLE-настроек и без Android-приложения — настройки, OTA и база камер через **Wi-Fi портал**;
 * **BLE нет вообще**: данные только по CAN — свой трансивер TJA1051 на шине I-CAN (TWAI, LISTEN_ONLY);
 * журнал пишется во флешь W25Q128 и скачивается с портала одним `.tar`.
+
+## Скриншоты
+
+Кадры ниже нарисованы кодом экрана прошивки (`hud_mockup.c`) по реальным CAN-логам поездки (см. [симулятор](tools/hud_sim_win/README.md)).
+
+| | |
+|---|---|
+| ![улица](docs/screens/01_street_and_arrow.png) | ![поворот](docs/screens/02_turn_blinker.png) |
+| Название улицы над стрелкой манёвра, расстояние, скорость, знак ограничения | Поворот направо через 10 м, индикатор поворотника |
+| ![камера](docs/screens/03_camera_alert.png) | ![двери](docs/screens/04_doors_open.png) |
+| Камера через 40 м (лимит 80), полосы ACC | Открытая дверь (машина стоит) |
+| ![acc](docs/screens/05_acc_second_maneuver.png) | ![camacc](docs/screens/06_camera_acc.png) |
+| ACC 120, превью «затем поворот направо» рядом с расстоянием | Камера через 300 м при ведении по маршруту |
+| ![navacc](docs/screens/07_nav_acc_limit.png) | |
+| Навигация + ACC, заданная скорость 80 | |
 
 ## Портал настроек
 
@@ -52,6 +69,10 @@ Maneuver_2 из BAP 0x17 («а потом поворот направо») ри�
 | Полный режим, BLE (совсем), приложение, анимация стрелок | убраны |
 
 Сборка: Arduino IDE, папка `supermini_hud2/`, плата ESP32-S3, партиции `partitions.csv`, библиотеки: LVGL 8.4.0, GFX Library for Arduino (NimBLE-Arduino больше не нужна).
+
+## Симулятор
+
+`tools/hud_sim_win/` — программа для Windows: проигрывает логи сниффера в тот же код экрана, с окном карты (Яндекс / 2ГИС / OSM). Подробности — [README](tools/hud_sim_win/README.md), [README_EN](tools/hud_sim_win/README_EN.md).
 
 ## Ресурсы
 

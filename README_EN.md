@@ -1,0 +1,80 @@
+# supermini_hud2
+
+[Русская версия: README.md](README.md) · Firmware version **1.0.0**
+
+A HUD for the Audi A4 B9 (MLB-Evo, MQB signals also supported) on an ESP32-S3 SuperMini with an NV3007 428×142 display. Second generation of the
+[supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE) project:
+
+* minimal display mode only (native 428×142, no scaling), no arrow animation;
+* no BLE settings and no Android app — settings, OTA and the camera database go through a **Wi-Fi portal**;
+* **no BLE at all**: data comes from CAN only — your own TJA1051 transceiver on the I-CAN bus (TWAI, LISTEN_ONLY);
+* the log is written to the W25Q128 flash and downloaded from the portal as a single `.tar`.
+
+## Screenshots
+
+All frames below are rendered by the firmware's own screen code (`hud_mockup.c`) from real CAN logs of a drive (see the [simulator](tools/hud_sim_win/README_EN.md)).
+
+| | |
+|---|---|
+| ![street](docs/screens/01_street_and_arrow.png) | ![turn](docs/screens/02_turn_blinker.png) |
+| Street name above the maneuver arrow, distance, speed, speed-limit sign | Turn right after 10 m, turn-signal indicator |
+| ![camera](docs/screens/03_camera_alert.png) | ![doors](docs/screens/04_doors_open.png) |
+| Speed camera 40 m ahead (limit 80), ACC lane view | Open door (car stands) |
+| ![acc](docs/screens/05_acc_second_maneuver.png) | ![camacc](docs/screens/06_camera_acc.png) |
+| ACC set speed 120, "then turn right" preview next to the distance | Camera 300 m ahead while navigating |
+| ![navacc](docs/screens/07_nav_acc_limit.png) | |
+| Navigation + ACC, set speed 80 | |
+
+## Settings portal
+
+After power-on the HUD starts a Wi-Fi access point **`HUD-SuperMini`** (password in `user_config.h`: `HUD_PORTAL_PASS` — change it).
+Open `http://192.168.4.1/` (a phone usually opens the page by itself). **5 minutes** after power-on Wi-Fi is switched off completely
+(if a file upload is in progress at that moment — one minute after it ends). **As soon as the car moves** (speed > 0 for more than a second)
+Wi-Fi is switched off immediately; an unfinished OTA upload is cancelled. To get it back, power-cycle the HUD.
+
+Transmitter power is limited: no more than 10 dBm (`HUD_PORTAL_TX_QDBM`, real hardware level 8.5 dBm).
+
+The page offers: language, units, PSD/VZE signs, street name above the arrow (on/off), overspeed tolerance, cameras (show, beep), volume, photoresistor (with calibration),
+`cams.bin` upload, log download (`/logs.tar`) and OTA firmware update (the application `.bin`).
+
+## Street name
+
+Above the maneuver arrow the HUD shows the street from BAP Navigation (fct 0x14 only — the short form used on road signs, e.g. "ул. Ленина"). If the name does not fit the 138 px window it scrolls around as a marquee. The name stays until the maneuver is over: while route guidance is active (RG_Status = 1) it stays on screen until a new one arrives; when the route ends it disappears. It can be switched on/off on the portal page ("Street name above the arrow"); on by default (`HUD_STREET_ON`). The font `hud_font_mstreet` (Roboto Condensed Bold 18, Cyrillic + Latin) is generated with `python3 tools/gen_min_native.py fonts hud_font_mstreet`.
+
+If a SignPost (direction, the second string of fct 0x14) comes with the street, it is appended to the same marquee after an arrow: "Гренадерская ул. → Гамбург". The "→" glyph is merged into the font from Montserrat Bold (Roboto Condensed does not have it).
+
+## Second-maneuver preview
+
+Maneuver_2 from BAP 0x17 ("and then turn right") is drawn as a small white arrow to the right of the distance to the maneuver. The images are the `nav_small` masks (`hud_nav_small.c`, 23 px high) taken from the Waveshare 3.49 project; the colour is set with `img_recolor`. "Follow the road" and route calculation are not shown as a preview; if there is not enough room on the right (up to the camera/sign, x = 152) the preview is hidden.
+
+SignPost decoding test: `gcc -Itests/stubs -Isupermini_hud2 tests/test_signpost.c supermini_hud2/can_decode.c && ./a.out`.
+
+## Flash log
+
+Everything the HUD writes to Serial is duplicated into the last 2 MB of the W25Q128 flash (`HUD_FLASH_LOG` in `user_config.h`; `cams.bin` lies from the start of the flash and never enters this area — its maximum size is reduced by 2 MB).
+
+* 4 slots of 512 KB = up to 4 files `hud.log.0000`, `hud.log.0001`, … (~500 KB each). When a file is full the next one starts; the oldest is erased. After `hud.log.9999` it wraps to `hud.log.0000`.
+* Every line starts with `[seconds.ms since power-on]`. If a car-time frame has been received over CAN (0x6B2 Diagnose_01, accepted after three consistent frames), the car date-time precedes it: `2026-11-11 10:15:03 [123.456] text`. The time is shown as on the instrument cluster (local or UTC — as configured in the car).
+* Once a minute a `[hb]` line is written (memory, speed, CAN frame count); `HUD_FLASH_LOG_HEARTBEAT_S`.
+* Download: the "Download log (.tar)" button on the portal page or `http://192.168.4.1/logs.tar` — it contains `hud.log.NNNN` files from oldest to newest (modification time = the moment the car time became known).
+* Writes happen in batches every 250 ms: on a sudden power loss the last quarter of a second is lost. After a restart logging continues in the same file.
+* Format: core `hud_flog_core.[ch]`, tests — `tests/test_flog.c`, `tests/test_time.c`.
+
+## Status
+
+| | |
+|---|---|
+| Portal, settings (NVS `hud2`), OTA, cams.bin, flash log | written, **not yet built on hardware** — needs checking in the Arduino IDE; the log core and time decoder are verified by host tests |
+| Minimal mode 428×142 | implemented (`hud_mockup.c`), verified with a headless LVGL render and the PC simulator on real logs; not verified on the board |
+| Full mode, BLE (entirely), app, arrow animation | removed |
+
+Build: Arduino IDE, folder `supermini_hud2/`, board ESP32-S3, partitions `partitions.csv`, libraries: LVGL 8.4.0, GFX Library for Arduino (NimBLE-Arduino is no longer needed).
+
+## Simulator
+
+`tools/hud_sim_win/` — a Windows program that plays CAN sniffer logs into the very same screen code, with a map window (Yandex / 2GIS / OSM). See [README_EN](tools/hud_sim_win/README_EN.md).
+
+## Resources
+
+Fonts, the ACC icon, icons and navigation arrows are generated for the 428×142 panel: `python3 supermini_hud2/tools/gen_min_native.py [images|nav|fonts]`
+(needs Pillow, fontTools, `npm i -g lv_font_conv`). Arrows come from `tools/arrows/arrows.bin` (last frame of every animation, ×0.74).
