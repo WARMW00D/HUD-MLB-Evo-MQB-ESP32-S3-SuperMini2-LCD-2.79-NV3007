@@ -25,6 +25,12 @@ HUD для Audi A4 B9 (MLB-Evo) на ESP32-S3 SuperMini + NV3007 428×142. Вт�
 | ![navacc](docs/screens/07_nav_acc_limit.png) | |
 | Навигация + ACC, заданная скорость 80 | |
 
+## Фото
+
+Прототип со стороны монтажа: плата дисплея на навесном монтаже, два DC-DC модуля, динамик с транзистором, разъём питания mini-USB.
+
+![прототип, вид сзади](docs/photos/prototype_back.jpg)
+
 ## Портал настроек
 
 После включения HUD поднимает Wi-Fi точку доступа **`HUD-SuperMini`** (пароль в `user_config.h`: `HUD_PORTAL_PASS`, смените его).

@@ -25,6 +25,12 @@ All frames below are rendered by the firmware's own screen code (`hud_mockup.c`)
 | ![navacc](docs/screens/07_nav_acc_limit.png) | |
 | Navigation + ACC, set speed 80 | |
 
+## Photo
+
+The prototype from the wiring side: display board with point-to-point wiring, two DC-DC modules, the speaker with its transistor, the mini-USB power connector.
+
+![prototype, rear view](docs/photos/prototype_back.jpg)
+
 ## Settings portal
 
 After power-on the HUD starts a Wi-Fi access point **`HUD-SuperMini`** (password in `user_config.h`: `HUD_PORTAL_PASS` — change it).
