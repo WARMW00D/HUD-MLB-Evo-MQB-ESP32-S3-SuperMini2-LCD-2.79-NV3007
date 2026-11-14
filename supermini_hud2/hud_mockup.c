@@ -32,6 +32,7 @@
 #include "hud_sound.h"
 #include "src/lcd_bl_bsp/lcd_bl_pwm_bsp.h"
 
+LV_FONT_DECLARE(hud_font_mspeed_ol);/* маска красной обводки цифр скорости (tools/gen_speed_outline.py)  */
 LV_FONT_DECLARE(hud_font_mspeed);   /* скорость: Overpass Medium, цифры 74 px, сжато по ширине   */
 LV_FONT_DECLARE(hud_font_mdist);    /* расстояние до манёвра, заданная скорость ACC: цифры 25 px */
 LV_FONT_DECLARE(hud_font_munit22);  /* «км/ч» рядом со скоростью                                 */
@@ -106,7 +107,7 @@ extern "C" {
 
 /* ---------- хэндлы ---------- */
 static lv_obj_t *mn_arrow, *mn_arrow2, *mn_dist_num, *mn_dist_unit, *mn_calc, *mn_street;
-static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol[8];   /* mn_spd_ol — красная обводка цифр скорости при превышении */
+static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol;   /* mn_spd_ol — красная обводка цифр скорости при превышении: одна надпись шрифтом-маской */
 static lv_obj_t *mn_sign, *mn_sign_lbl, *mn_sign_end, *mn_sign_car_l, *mn_sign_car_r;
 static lv_obj_t *mn_cam_sq, *mn_cam_disc, *mn_cam_lbl, *mn_cam_eye, *mn_cam_dist;
 static lv_obj_t *mn_acc_box, *mn_lane_l, *mn_lane_r, *mn_lead, *mn_arcs, *mn_own, *mn_swa_l, *mn_swa_r;
@@ -622,7 +623,7 @@ static void mn_build(lv_obj_t *scr)
     lv_obj_add_flag(mn_ps_box, LV_OBJ_FLAG_HIDDEN);
 
     /* центр: скорость (красная обводка — 8 копий под белыми цифрами) */
-    for (int i = 0; i < 8; i++) mn_spd_ol[i] = mn_label(scr, &hud_font_mspeed, C_OVERSPEED);
+    mn_spd_ol   = mn_label(scr, &hud_font_mspeed_ol, C_OVERSPEED);   /* под белыми цифрами */
     mn_spd      = mn_label(scr, &hud_font_mspeed, 0xffffff);
     mn_spd_unit = mn_label(scr, &hud_font_munit22, C_UNIT_SPEED);
 
@@ -743,7 +744,7 @@ static void mn_speed(const HudData *d, int ov_opa)
     const HudTxt *tx = txt();
     if (!(d->valid & V_SPEED)) {
         vis(mn_spd, false);
-        for (int i = 0; i < 8; i++) vis(mn_spd_ol[i], false);
+        vis(mn_spd_ol, false);
         vis(mn_spd_unit, false);
         g_row_cx = mn_speed_axis(); g_spd_left = g_row_cx;
         return;
@@ -755,17 +756,17 @@ static void mn_speed(const HudData *d, int ov_opa)
     const int cx = mn_speed_axis();
     int left;
     mn_digits(mn_spd, &hud_font_mspeed, buf, cx, SPD_BASE, &left);
-    /* превышение — красная обводка вокруг белых цифр */
-    static const int8_t off[8][2] = { {-2,0},{2,0},{0,-2},{0,2},{-2,-1},{2,-1},{-2,1},{2,1} };
-    for (int i = 0; i < 8; i++) {
-        if (ov_opa > 0) {
-            mn_dx = off[i][0]; mn_dy = off[i][1];
-            mn_digits(mn_spd_ol[i], &hud_font_mspeed, buf, cx, SPD_BASE, NULL);
-            mn_dx = mn_dy = 0;
-            if (lv_obj_get_style_text_opa(mn_spd_ol[i], LV_PART_MAIN) != ov_opa) lv_obj_set_style_text_opa(mn_spd_ol[i], (lv_opa_t)ov_opa, 0);
-        }
-        vis(mn_spd_ol[i], ov_opa > 0);
+    /* превышение — красная обводка вокруг белых цифр: одна надпись, в той же точке (маска уже «раздута» на 2 px) */
+    if (ov_opa > 0) {
+        /* раньше восемь полупрозрачных копий накладывались друг на друга (в кольце обводки ~3 слоя): итоговая плотность 1-(1-a)^3.
+           Одна копия при том же a выглядела бы бледнее — подгоняем непрозрачность под прежний вид. */
+        int inv = 255 - ov_opa;
+        int opa = 255 - inv * inv / 255 * inv / 255;
+        set_text(mn_spd_ol, buf);
+        lv_obj_set_pos(mn_spd_ol, lv_obj_get_x(mn_spd), lv_obj_get_y(mn_spd));
+        if (lv_obj_get_style_text_opa(mn_spd_ol, LV_PART_MAIN) != opa) lv_obj_set_style_text_opa(mn_spd_ol, (lv_opa_t)opa, 0);
     }
+    vis(mn_spd_ol, ov_opa > 0);
     const char *u = g_units == HUD_UNITS_MI ? "mph" : tx->kmh;
     /* единица всегда справа от цифр, верх чернил на уровне верха цифр — при любом числе цифр */
     {
