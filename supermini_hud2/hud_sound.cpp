@@ -14,7 +14,7 @@ static const Note kBeep[]   = {{2400, 80}};
 static const Note kDouble[] = {{2400, 70}, {0, 70}, {2400, 70}};
 static const Note kRising[] = {{1500, 80}, {0, 20}, {2000, 80}, {0, 20}, {2600, 120}};
 static const Note kWarn[]   = {{3000, 110}, {0, 70}, {3000, 110}, {0, 70}, {3000, 110}};
-static const Note kCam[]    = {{300, 100}};           /* камера: одиночный низкий пик */
+static const Note kCam[]    = {{200, 100}};           /* камера: одиночный низкий пик, 200 Гц */
 
 struct Pattern { const Note *n; uint8_t len; };
 #define PAT(a) { a, (uint8_t)(sizeof(a) / sizeof(a[0])) }

@@ -13,6 +13,7 @@
 #include "lvgl.h"
 #include "esp_system.h"
 #include <stdio.h>
+#include <math.h>                       /* log10f в update_brightness */
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -400,7 +401,7 @@ static bool cams_update(uint32_t now, const HudData *d, uint16_t *lim_for_speed)
         beeped = h.idx;
         arduino_printf("[cam] #%lu limit %u at %.0f m, v=%u, hdg %u/cam %d\n", (unsigned long)h.idx, h.limit,
                        h.dist_m, d->speed_kmh, d->gps_hdg_x10 / 10, (int)h.dir_deg);
-        if (g_cam_beep && h.limit && d->speed_kmh > h.limit) hud_sound_play(HUD_SND_WARN);
+        if (g_cam_beep && h.limit && d->speed_kmh > h.limit) hud_sound_play(HUD_SND_CAM);       /* один низкий пик 200 Гц */
     }
     if (h.limit && h.dist_m <= HUD_CAM_OVERSPEED_M && (*lim_for_speed == 0 || h.limit < *lim_for_speed))
         *lim_for_speed = h.limit;

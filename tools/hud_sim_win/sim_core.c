@@ -98,7 +98,7 @@ static const snd_note_t k_beep[]   = {{2400, 80}};
 static const snd_note_t k_double[] = {{2400, 70}, {0, 70}, {2400, 70}};
 static const snd_note_t k_rising[] = {{1500, 80}, {0, 20}, {2000, 80}, {0, 20}, {2600, 120}};
 static const snd_note_t k_warn[]   = {{3000, 110}, {0, 70}, {3000, 110}, {0, 70}, {3000, 110}};
-static const snd_note_t k_cam[]    = {{300, 100}};
+static const snd_note_t k_cam[]    = {{200, 100}};
 static const struct { const snd_note_t *n; int len; } k_pat[HUD_SND_COUNT] = {
     { k_beep, 1 }, { k_double, 3 }, { k_rising, 5 }, { k_warn, 5 }, { k_cam, 1 } };
 
