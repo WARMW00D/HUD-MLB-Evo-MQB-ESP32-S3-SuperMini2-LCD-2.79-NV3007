@@ -19,6 +19,8 @@ void    hud_set_lang(uint8_t lang);
 void    hud_set_units(uint8_t units);
 uint8_t hud_get_lang(void);
 uint8_t hud_get_units(void);
+/* Подпись платформы на заставке без CAN (по умолчанию из HUD_PLATFORM: «MLB EVO» / «MQB»); нужна симулятору, где платформа меняется на лету */
+void    hud_set_splash_plat(const char *s);
 void    hud_set_psd(bool on);          /* знаки из PSD (прогноз маршрута MIB) вкл/выкл  */
 bool    hud_get_psd(void);
 void    hud_set_vze(bool on);          /* знаки из VZE_01 (камера / карта приборки)     */

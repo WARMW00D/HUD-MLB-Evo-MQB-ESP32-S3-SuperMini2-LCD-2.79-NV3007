@@ -1,6 +1,6 @@
 # supermini_hud2
 
-[English version: README_EN.md](README_EN.md) · Версия прошивки **1.0.0**
+[English version: README_EN.md](README_EN.md) · Версия прошивки **1.1.0**
 
 > [!NOTE]
 > ### Переработанная версия [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE)

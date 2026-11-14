@@ -47,6 +47,11 @@ int main(int argc, char **argv)
     }
     if (getenv("SIM_PLATFORM") && !strcmp(getenv("SIM_PLATFORM"), "MQB")) sim_set_platform(SIM_PLATFORM_MQB);   /* по умолчанию MLB-Evo */
     if (argc > 4 && (t = (char *)slurp(argv[4], &n))) printf("[sim] cams.bin: %s\n", sim_set_cams(t, n) ? "ok" : "ошибка");
+    if (!strcmp(argv[1], "-")) {                         /* без лога: «нет связи» — заставка; sec — сколько секунд прожить */
+        for (int i = 0; i < (int)(atof(argv[2]) * 100); i++) sim_step(10);
+        save_bmp(argv[3]);
+        return 0;
+    }
     t = (char *)slurp(argv[1], &n);
     if (!t || !sim_load_log(t, n, false)) { fprintf(stderr, "не удалось прочитать лог\n"); return 1; }
     free(t);

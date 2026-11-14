@@ -233,6 +233,10 @@ MENU = ("hud_font_menu", 20, "range:0x20-0x7E,0x401,0x410-0x44F,0x451", os.path.
 # название улицы над стрелкой (узкий шрифт, кириллица + латиница) — перегенерируется только по имени:
 #   python3 tools/gen_min_native.py fonts hud_font_mstreet
 STREET = ("hud_font_mstreet", 18, "range:0x20-0x7E,0x401,0x410-0x44F,0x451", os.path.join(FD, "RobotoCondensed-Bold.ttf"))
+# заставка «HUD VAG» при отсутствии CAN (крупная надпись и подпись с платформой) — перегенерируется только по имени:
+#   python3 tools/gen_min_native.py fonts hud_font_splash hud_font_splash_sub
+SPLASH = ("hud_font_splash", 72, "HUDVAG ", os.path.join(FD, "InterDisplay-Medium-sub.otf"))
+SPLASH_SUB = ("hud_font_splash_sub", 22, "MLBEVOQ ", os.path.join(FD, "InterDisplay-Medium-sub.otf"))
 def make_squeezed():
     from fontTools.ttLib import TTFont
     from fontTools.pens.transformPen import TransformPen
@@ -251,7 +255,7 @@ def digit_size(font, dh):
     return round(dh * f["head"].unitsPerEm / (g.yMax - g.yMin))
 def gen_fonts(only=()):
     make_squeezed()
-    for name, size, symbols, font in FONTS + [f for f in (MENU, STREET) if f[0] in only]:
+    for name, size, symbols, font in FONTS + [f for f in (MENU, STREET, SPLASH, SPLASH_SUB) if f[0] in only]:
         if only and name not in only: continue
         if isinstance(size, tuple): size = digit_size(font, size[1])
         out = os.path.join(OUT, name + ".c")

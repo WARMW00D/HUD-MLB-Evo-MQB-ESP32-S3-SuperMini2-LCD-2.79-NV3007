@@ -41,6 +41,8 @@ LV_FONT_DECLARE(hud_font_msign3);   /*   3 цифры                           
 LV_FONT_DECLARE(hud_font_mcdisc2);  /* цифры круга камеры: 2 цифры                               */
 LV_FONT_DECLARE(hud_font_mcdisc3);  /*   3 цифры                                                 */
 LV_FONT_DECLARE(hud_font_menu);     /* сообщения (кириллица + латиница)                          */
+LV_FONT_DECLARE(hud_font_splash);   /* заставка «HUD VAG» (Inter Display Medium 72 px, только нужные буквы) */
+LV_FONT_DECLARE(hud_font_splash_sub); /* подпись платформы под ней (22 px)                       */
 LV_FONT_DECLARE(hud_font_mstreet);   /* название улицы над стрелкой (узкий, кириллица + латиница)  */
 
 #ifdef __cplusplus
@@ -777,6 +779,98 @@ static void mn_speed(const HudData *d, int ov_opa)
 /* ============================================================================
    Обновление экрана — lv_timer, 50 мс, внутри задачи LVGL (под мьютексом)
    ========================================================================== */
+/* ---------- заставка, пока нет данных по CAN ---------- */
+/* Весь экран: «HUD VAG» крупно, тонкая линия с градиентом, подпись платформы (MLB EVO / MQB — по флагу сборки HUD_PLATFORM).
+   Появляется, только если CAN молчит дольше SPLASH_DELAY_MS (при включении данные обычно идут сразу — тогда её не видно), плавно (0,7 с);
+   как только по CAN пошли кадры (link_up), пропадает сразу, без затухания. */
+#if HUD_PLATFORM == HUD_PLATFORM_MQB
+#define SPLASH_PLAT_DEFAULT "MQB"
+#else
+#define SPLASH_PLAT_DEFAULT "MLB EVO"
+#endif
+#define SPLASH_DELAY_MS   1500    /* столько CAN должен молчать, чтобы заставка появилась */
+#define SPLASH_TITLE_CY   46      /* центр заглавных «HUD VAG» по вертикали */
+#define SPLASH_LINE_Y     88
+#define SPLASH_SUB_CY     110
+#define SPLASH_TITLE_LS   9       /* разрядка, px */
+#define SPLASH_SUB_LS     8
+#define C_SPLASH_TITLE    0xf2f5f8
+#define C_SPLASH_SUB      0x9db0c4
+static char      g_splash_plat[24] = SPLASH_PLAT_DEFAULT;
+static lv_obj_t *splash, *splash_in, *splash_sub;
+
+void hud_set_splash_plat(const char *s)
+{
+    if (s && *s) { strncpy(g_splash_plat, s, sizeof g_splash_plat - 1); g_splash_plat[sizeof g_splash_plat - 1] = 0; }
+}
+
+static lv_obj_t *splash_label(lv_obj_t *par, const lv_font_t *f, const char *s, int ls, uint32_t col, int cap_cy)
+{
+    lv_obj_t *l = lv_label_create(par);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_font(l, f, 0);
+    lv_obj_set_style_text_color(l, lv_color_hex(col), 0);
+    lv_obj_set_style_text_letter_space(l, ls, 0);
+    lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(l, HUD_PANEL_W);
+    lv_label_set_text(l, s);
+    lv_font_glyph_dsc_t g; int top = 0, h = 0;
+    if (lv_font_get_glyph_dsc(f, &g, 'H', 0)) { h = g.box_h; top = (f->line_height - f->base_line) - g.ofs_y - g.box_h; }
+    lv_obj_set_pos(l, 0, cap_cy - (top + h / 2));
+    return l;
+}
+
+static lv_obj_t *splash_rule(lv_obj_t *par, int x, int w, bool rise)
+{
+    lv_obj_t *o = lv_obj_create(par);
+    lv_obj_remove_style_all(o);
+    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_size(o, w, 2);
+    lv_obj_set_pos(o, x, SPLASH_LINE_Y);
+    lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(o, lv_color_hex(rise ? 0x000000 : C_NAV_ARROW), 0);
+    lv_obj_set_style_bg_grad_color(o, lv_color_hex(rise ? C_NAV_ARROW : 0x000000), 0);
+    lv_obj_set_style_bg_grad_dir(o, LV_GRAD_DIR_HOR, 0);
+    return o;
+}
+
+static void splash_build(lv_obj_t *scr)
+{
+    splash = lv_obj_create(scr);
+    lv_obj_remove_style_all(splash);
+    lv_obj_set_size(splash, HUD_PANEL_W, HUD_PANEL_H);
+    lv_obj_set_pos(splash, 0, 0);
+    lv_obj_set_style_bg_color(splash, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(splash, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(splash, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    splash_in = lv_obj_create(splash);              /* содержимое — отдельным слоем, чтобы плавно проявлять его на чёрном */
+    lv_obj_remove_style_all(splash_in);
+    lv_obj_set_size(splash_in, HUD_PANEL_W, HUD_PANEL_H);
+    lv_obj_clear_flag(splash_in, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    splash_label(splash_in, &hud_font_splash, "HUD VAG", SPLASH_TITLE_LS, C_SPLASH_TITLE, SPLASH_TITLE_CY);
+    splash_rule(splash_in, HUD_PANEL_W / 2 - 150, 150, true);
+    splash_rule(splash_in, HUD_PANEL_W / 2, 150, false);
+    splash_sub = splash_label(splash_in, &hud_font_splash_sub, g_splash_plat, SPLASH_SUB_LS, C_SPLASH_SUB, SPLASH_SUB_CY);
+    lv_obj_add_flag(splash, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void splash_fade_cb(void *o, int32_t v) { lv_obj_set_style_opa((lv_obj_t *)o, (lv_opa_t)v, 0); }
+
+static void splash_show(bool on)
+{
+    bool was = !lv_obj_has_flag(splash, LV_OBJ_FLAG_HIDDEN);
+    if (on && !was) {
+        lv_obj_clear_flag(splash, LV_OBJ_FLAG_HIDDEN);
+        lv_anim_t a; lv_anim_init(&a);
+        lv_anim_set_var(&a, splash_in); lv_anim_set_exec_cb(&a, splash_fade_cb);
+        lv_anim_set_values(&a, 0, 255); lv_anim_set_time(&a, 700);
+        lv_anim_start(&a);
+    } else if (!on && was) {
+        lv_anim_del(splash_in, splash_fade_cb);
+        lv_obj_add_flag(splash, LV_OBJ_FLAG_HIDDEN);   /* данные пошли — убираем сразу */
+    }
+}
+
 static void hud_update_cb(lv_timer_t *t)
 {
     (void)t;
@@ -785,6 +879,19 @@ static void hud_update_cb(lv_timer_t *t)
     HudData d;
     hud_data_snapshot(&d);
     uint32_t now = hud_now_ms();
+    {   /* заставка: CAN молчит дольше SPLASH_DELAY_MS. Если кадры пошли сразу при включении — её не видно вовсе;
+           как только пошли — убирается сразу */
+        static bool nl_run; static uint32_t nl_since;
+        bool nl = !d.link_up;
+        if (!nl) nl_run = false; else if (!nl_run) { nl_run = true; nl_since = now; }
+        bool sp = nl && (uint32_t)(now - nl_since) >= SPLASH_DELAY_MS;
+        splash_show(sp);
+        if (sp) {
+            set_text(splash_sub, g_splash_plat);
+            update_brightness(&d, now);
+            return;
+        }
+    }
     char buf[40];
     const HudTxt *tx = txt();
     uint16_t lim_kmh_for_speed = 0;
@@ -1095,6 +1202,8 @@ void build_hud_mockup(void)
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
     mn_build(scr);
+
+    splash_build(scr);                              /* заставка: поверх обычного экрана, под экраном обновления ПО */
 
     /* Экран обновления ПО (портал): создаётся последним — лежит поверх обычного экрана. */
     ota_panel = lv_obj_create(scr);
