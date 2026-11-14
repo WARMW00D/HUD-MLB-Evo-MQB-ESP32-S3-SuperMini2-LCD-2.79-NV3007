@@ -514,6 +514,7 @@ static int mn_ink_up(const lv_font_t *f, const char *s)
 }
 
 /* надпись цифр: чернила по центру cx, базовая линия base; возвращает ширину чернил и левый край чернил */
+static int mn_last_x, mn_last_y;          /* куда mn_digits поставил надпись (lv_obj_get_x до обновления раскладки отдаёт прежнюю позицию) */
 static int mn_dx, mn_dy;                  /* смещение надписи (для обводки скорости), сбрасывается после вызова */
 static int mn_digits(lv_obj_t *l, const lv_font_t *f, const char *s, int cx, int base, int *left)
 {
@@ -522,7 +523,8 @@ static int mn_digits(lv_obj_t *l, const lv_font_t *f, const char *s, int cx, int
     mn_ink(f, s, &a, &b);
     int w = b - a;
     int x = cx - w / 2;                       /* левый край чернил */
-    lv_obj_set_pos(l, x - a + mn_dx, base - (f->line_height - f->base_line) + mn_dy);
+    mn_last_x = x - a + mn_dx; mn_last_y = base - (f->line_height - f->base_line) + mn_dy;
+    lv_obj_set_pos(l, mn_last_x, mn_last_y);
     vis(l, s[0] != 0);
     if (left) *left = x;
     return w;
@@ -756,6 +758,7 @@ static void mn_speed(const HudData *d, int ov_opa)
     const int cx = mn_speed_axis();
     int left;
     mn_digits(mn_spd, &hud_font_mspeed, buf, cx, SPD_BASE, &left);
+    const int spd_px = mn_last_x, spd_py = mn_last_y;
     /* превышение — красная обводка вокруг белых цифр: одна надпись, в той же точке (маска уже «раздута» на 2 px) */
     if (ov_opa > 0) {
         /* раньше восемь полупрозрачных копий накладывались друг на друга (в кольце обводки ~3 слоя): итоговая плотность 1-(1-a)^3.
@@ -763,7 +766,7 @@ static void mn_speed(const HudData *d, int ov_opa)
         int inv = 255 - ov_opa;
         int opa = 255 - inv * inv / 255 * inv / 255;
         set_text(mn_spd_ol, buf);
-        lv_obj_set_pos(mn_spd_ol, lv_obj_get_x(mn_spd), lv_obj_get_y(mn_spd));
+        lv_obj_set_pos(mn_spd_ol, spd_px, spd_py);       /* ровно туда же, где белые цифры, в этом же тике */
         if (lv_obj_get_style_text_opa(mn_spd_ol, LV_PART_MAIN) != opa) lv_obj_set_style_text_opa(mn_spd_ol, (lv_opa_t)opa, 0);
     }
     vis(mn_spd_ol, ov_opa > 0);
