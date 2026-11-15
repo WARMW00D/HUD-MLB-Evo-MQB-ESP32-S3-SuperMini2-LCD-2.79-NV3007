@@ -74,6 +74,30 @@ Everything the HUD writes to Serial is duplicated into the last 2 MB of the W25Q
 * Writes happen in batches every 250 ms: on a sudden power loss the last quarter of a second is lost. After a restart logging continues in the same file.
 * Format: core `hud_flog_core.[ch]`, tests — `tests/test_flog.c`, `tests/test_time.c`.
 
+## Building for MLB-Evo or MQB
+
+The platform is chosen **at build time** with one line in `supermini_hud2/hud_config.h`:
+
+```c
+#define HUD_PLATFORM HUD_PLATFORM_MLB_EVO   // Audi A4 B9 and other MLB-Evo cars (default)
+// #define HUD_PLATFORM HUD_PLATFORM_MQB    // VAG MQB
+```
+
+Or with a compiler flag, without editing the file: `-DHUD_PLATFORM=HUD_PLATFORM_MQB`. After changing the platform, rebuild and flash again — it cannot be switched at run time.
+
+| | MLB-Evo (Audi A4 B9) | MQB |
+|---|---|---|
+| Bus | I-CAN | Comfort CAN (wire colors are on the wiring schematics) |
+| CAN speed | 500 kbit/s (`HUD_CAN_BITRATE_K`) | 500 kbit/s (`HUD_CAN_BITRATE_K`) |
+| ACC | frames `0x2A6` / `0x2A8` | `0x2A7` (active) and `0x30C` (set speed) |
+| Pre sense (AWV) | `0x2A9` | not on the bus |
+| Instrument lighting dial | `0x64F` | a byte in `0x5F0` (Dimmung_01) |
+| Verified | on the A4 B9 with real logs | only on a pre-facelift Octavia A7 without Virtual Cockpit; some signals are hypotheses |
+
+Everything else (speed, BAP navigation, PSD / VZE signs, cameras, log, portal) is the same on both platforms.
+While there is no CAN data, the screen shows the "HUD VAG" splash with a second line, **MLB EVO** or **MQB** — so you can see at once which platform the firmware was built for.
+In the [simulator](tools/hud_sim_win/README_EN.md) the platform is switched in the "Platform" menu: open MQB logs with MQB and A4 logs with MLB-Evo.
+
 ## Status
 
 | | |
