@@ -1,6 +1,6 @@
 # supermini_hud2
 
-[Русская версия: README.md](README.md) · Firmware version **1.1.0**
+[Русская версия: README.md](README.md) · Firmware version **1.2.0**
 
 > [!NOTE]
 > ### A reworked version of [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE)
