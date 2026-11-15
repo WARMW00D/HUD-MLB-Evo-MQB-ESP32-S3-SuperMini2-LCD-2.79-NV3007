@@ -61,7 +61,13 @@ int main(int argc, char **argv)
     if (getenv("SIM_PLAY_FROM")) {                       /* проиграть подряд от SIM_PLAY_FROM до sec */
         sim_seek_ms((uint32_t)(atof(getenv("SIM_PLAY_FROM")) * 1000));
         sim_play(true);
+        for (int i = 0; i < 100; i++) sim_step(10);      /* 1 с на первую отрисовку — в замер не входит */
+        uint32_t n0, p0, t0, n1, p1, t1;
+        sim_refresh_stats(&n0, &p0, &t0);
         while (sim_pos_ms() < (uint32_t)(sec * 1000) && !sim_take_eof()) sim_step(10);
+        sim_refresh_stats(&n1, &p1, &t1);
+        if (t1 > t0) printf("[sim] перерисовок/с %.1f, в панель %.0f КБ/с (полный кадр = %.0f КБ)\n", (n1 - n0) * 1000.0 / (t1 - t0),
+                            (p1 - p0) * 2.0 / 1024.0 * 1000.0 / (t1 - t0), SIM_W * SIM_H * 2 / 1024.0);
     } else {
         sim_seek_ms((uint32_t)(sec * 1000));
         sim_play(true);

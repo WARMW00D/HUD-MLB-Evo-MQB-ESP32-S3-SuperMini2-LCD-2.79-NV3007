@@ -24,6 +24,9 @@ extern volatile bool sim_fb_dirty;       /* ядро ставит при пер�
 extern int sim_backlight;                /* яркость подсветки 0..255, которую выставил HUD; -1 — ещё не выставлял */
 
 uint32_t sim_lv_tick(void);              /* для LV_TICK_CUSTOM */
+/* Нагрузка на экран: сколько раз LVGL перерисовывал экран и сколько пикселей ушло бы в панель (нарастающим итогом),
+   lv_ms — время LVGL. Отрисовка частичная, полосами HUD_STRIPE_H — как в прошивке (lvgl_port.cpp). */
+void sim_refresh_stats(uint32_t *refreshes, uint32_t *pixels, uint32_t *lv_ms);
 
 void sim_init(void);                     /* настройки, LVGL, экран HUD */
 void sim_step(uint32_t real_dt_ms);      /* вызывать часто (5-15 мс): время, кадры лога, LVGL */

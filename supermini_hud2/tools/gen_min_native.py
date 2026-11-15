@@ -237,6 +237,9 @@ STREET = ("hud_font_mstreet", 18, "range:0x20-0x7E,0x401,0x410-0x44F,0x451", os.
 #   python3 tools/gen_min_native.py fonts hud_font_splash hud_font_splash_sub
 SPLASH = ("hud_font_splash", 72, "HUDVAG ", os.path.join(FD, "InterDisplay-Medium-sub.otf"))
 SPLASH_SUB = ("hud_font_splash_sub", 22, "MLBEVOQ ", os.path.join(FD, "InterDisplay-Medium-sub.otf"))
+# Крупные шрифты — без сжатия: сжатый глиф LVGL распаковывает целиком при каждой отрисовке, причём заново для каждой
+# полосы экрана, в которую он попадает (цифра скорости высотой 75 px — это несколько полос). Цена — несколько КБ флеша.
+NO_COMPRESS = {"hud_font_mspeed", "hud_font_mdist", "hud_font_splash"}
 def make_squeezed():
     from fontTools.ttLib import TTFont
     from fontTools.pens.transformPen import TransformPen
@@ -264,7 +267,8 @@ def gen_fonts(only=()):
         if name == "hud_font_mstreet":      # стрелка «→» (SignPost) — нет в Roboto Condensed, берём из Montserrat Bold
             extra = ["--font", os.path.join(FD, "Montserrat-Bold.ttf"), "--range", "0x2192"]
         subprocess.run(["lv_font_conv", "--font", font, "--size", str(size), "--bpp", "4", "--format", "lvgl"] + chars + extra +
-                       ["-o", out, "--force-fast-kern-format", "--no-prefilter"], check=True)
+                       ["-o", out, "--force-fast-kern-format", "--no-prefilter"] +
+                       (["--no-compress"] if name in NO_COMPRESS else []), check=True)
         s = open(out, encoding="utf-8").read()
         s = s.replace("#ifdef LV_LVGL_H_INCLUDE_SIMPLE", "#define LV_LVGL_H_INCLUDE_SIMPLE\n#ifdef LV_LVGL_H_INCLUDE_SIMPLE", 1)
         s = re.sub(r"--font \S*[/\\]([^/\\\s]+\.(?:ttf|otf))", r"--font \1", s)

@@ -528,6 +528,13 @@ static void update_status(void)
         else                  o += swprintf(a + o, 600 - o, TR("   часов машины в логе нет", "   no car clock in the log"));
     }
     if (sim_backlight >= 0) o += swprintf(a + o, 600 - o, TR("   подсветка %d/255", "   backlight %d/255"), sim_backlight);
+    {   /* нагрузка на экран: перерисовок LVGL в секунду и поток в панель (по времени LVGL, усреднение ~1 с) */
+        static uint32_t rn0, rp0, rt0; static double r_hz, r_kb;
+        uint32_t rn, rp, rt; sim_refresh_stats(&rn, &rp, &rt);
+        if (rt < rt0) { rn0 = rn; rp0 = rp; rt0 = rt; }
+        if (rt - rt0 >= 1000) { r_hz = (rn - rn0) * 1000.0 / (rt - rt0); r_kb = (rp - rp0) * 2.0 / 1024.0 * 1000.0 / (rt - rt0); rn0 = rn; rp0 = rp; rt0 = rt; }
+        o += swprintf(a + o, 600 - o, TR("   перерисовок/с %.1f (%.0f КБ/с)", "   redraws/s %.1f (%.0f KB/s)"), r_hz, r_kb);
+    }
     set_text(g_st1, a);
 
     o = 0;

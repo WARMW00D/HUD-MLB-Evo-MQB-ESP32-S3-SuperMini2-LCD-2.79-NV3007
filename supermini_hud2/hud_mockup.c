@@ -514,6 +514,7 @@ static int mn_ink_up(const lv_font_t *f, const char *s)
 }
 
 /* надпись цифр: чернила по центру cx, базовая линия base; возвращает ширину чернил и левый край чернил */
+#define SPD_OL_PAD 2                       /* запас маски обводки вокруг цифр, px (PAD в tools/gen_speed_outline.py) */
 static int mn_last_x, mn_last_y;          /* куда mn_digits поставил надпись (lv_obj_get_x до обновления раскладки отдаёт прежнюю позицию) */
 static int mn_dx, mn_dy;                  /* смещение надписи (для обводки скорости), сбрасывается после вызова */
 static int mn_digits(lv_obj_t *l, const lv_font_t *f, const char *s, int cx, int base, int *left)
@@ -538,7 +539,8 @@ static void mn_center_ink(lv_obj_t *l, const lv_font_t *f, const char *s, int cx
     lv_font_glyph_dsc_t g;
     int top = 0, h = 0;
     if (lv_font_get_glyph_dsc(f, &g, '0', 0)) { h = g.box_h; top = (f->line_height - f->base_line) - g.ofs_y - g.box_h; }
-    lv_obj_set_align(l, LV_ALIGN_TOP_LEFT);
+    /* без проверки LVGL на каждом тике (50 мс) помечает надпись изменённой — знак перерисовывался 20 раз в секунду */
+    if (lv_obj_get_style_align(l, LV_PART_MAIN) != LV_ALIGN_TOP_LEFT) lv_obj_set_align(l, LV_ALIGN_TOP_LEFT);
     lv_obj_set_pos(l, cx - (a + b) / 2, cy - (top + h / 2));
 }
 
@@ -766,7 +768,7 @@ static void mn_speed(const HudData *d, int ov_opa)
         int inv = 255 - ov_opa;
         int opa = 255 - inv * inv / 255 * inv / 255;
         set_text(mn_spd_ol, buf);
-        lv_obj_set_pos(mn_spd_ol, spd_px, spd_py);       /* ровно туда же, где белые цифры, в этом же тике */
+        lv_obj_set_pos(mn_spd_ol, spd_px, spd_py - SPD_OL_PAD);   /* под белые цифры, в этом же тике; строка шрифта-маски выше на 2*SPD_OL_PAD */
         if (lv_obj_get_style_text_opa(mn_spd_ol, LV_PART_MAIN) != opa) lv_obj_set_style_text_opa(mn_spd_ol, (lv_opa_t)opa, 0);
     }
     vis(mn_spd_ol, ov_opa > 0);

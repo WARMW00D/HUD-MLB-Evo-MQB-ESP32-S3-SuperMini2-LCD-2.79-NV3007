@@ -10,7 +10,7 @@
 #define EXAMPLE_PIN_NUM_BK_LIGHT 6
 #define HUD_LCD_SPI_HZ   20000000   /* init + legacy blocking path */
 #define HUD_LCD_ASYNC_DMA 1          /* 1: queued SPI DMA + 2 draw buffers (render overlaps transfer); 0: old blocking Arduino_GFX path */
-#define HUD_LCD_DMA_SPI_HZ 20000000  /* async path clock; try 40000000 and watch the picture for glitches */
+#define HUD_LCD_DMA_SPI_HZ 40000000  /* async path clock; if the picture glitches (noise, shifted rows), go back to 20000000 */
 #define HUD_PERF_LOG     0           /* print [perf] render/transfer timings to Serial */
 #define HUD_PERF_LOG_MS  5000
 /* Speaker: passive buzzer/PC speaker through an NPN (BC547), see hud_sound.h */
@@ -46,7 +46,7 @@
 #define HUD_CANVAS_H    HUD_PANEL_H
 #define HUD_VIEW_H      HUD_PANEL_H
 #define HUD_VIEW_Y      0
-#define HUD_STRIPE_H    16
+#define HUD_STRIPE_H    32     /* строк в полосе отрисовки: два DMA-буфера по 428 x HUD_STRIPE_H x 2 байта во внутренней RAM (32 -> 2 x 27 КБ) */
 #define EXAMPLE_LVGL_TICK_PERIOD_MS 5
 #define EXAMPLE_LVGL_TASK_MIN_DELAY_MS 5
 #define EXAMPLE_LVGL_TASK_MAX_DELAY_MS 50

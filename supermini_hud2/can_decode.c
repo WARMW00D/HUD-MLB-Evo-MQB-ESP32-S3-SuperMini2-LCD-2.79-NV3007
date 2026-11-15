@@ -510,7 +510,7 @@ void can_decode_frame(uint32_t id, bool ext, const uint8_t *data, uint8_t dlc)
 
     taskENTER_CRITICAL(&s_mux);
     s_data.frames_rx++;
-    dbg_note(id, ext, data, dlc);
+    if (HUD_LOG_CAN) dbg_note(id, ext, data, dlc);    /* счётчики по ID нужны только журналу [CAN] */
     taskEXIT_CRITICAL(&s_mux);
 
     if (ext) {

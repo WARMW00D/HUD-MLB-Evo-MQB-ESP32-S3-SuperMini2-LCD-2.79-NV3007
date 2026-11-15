@@ -113,3 +113,9 @@ The simulator UI (buttons, menus, status lines, log, settings window, map window
 Switch via the "View" menu → "Interface language" (Русский / English); it applies immediately and is stored in `hud_sim.ini`
 (`[ui] lang=0` — Russian, `1` — English). Until chosen manually, the Windows UI language is used (Russian, Ukrainian, Belarusian → Russian, otherwise English).
 This is not the HUD screen language — that one is set in the "HUD settings" window ("HUD language" field).
+
+## Screen load
+
+The simulator draws the way the firmware does: partially, in `HUD_STRIPE_H` stripes, only the areas that changed.
+The first status line shows "redraws/s" and the data stream to the panel in KB/s — they tell whether the screen is being redrawn for nothing.
+In `hud_shot`, when a span is played (`SIM_PLAY_FROM`), the same figures are printed at the end.

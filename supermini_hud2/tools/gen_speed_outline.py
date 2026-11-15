@@ -4,7 +4,7 @@ gen_speed_outline.py — hud_font_mspeed_ol.c: «обводка» цифр ск�
 Раньше красная обводка рисовалась восемью копиями цифр со сдвигами (8 больших надписей поверх белой — экран лагал).
 Здесь те же восемь сдвигов склеены в маску заранее: глyфы того же шрифта, но с запасом в 2 px вокруг, поэтому
 обводка — одна надпись под белыми цифрами, а выглядит так же.  Метрики (adv_w) те же, смещения ofs уменьшены на 2:
-надпись обводки ставится в ту же точку, что и белая.
+надпись обводки ставится по x в ту же точку, что и белая, по y — на 2 px выше (строка шрифта выше на 4 px).
 Запуск (из папки скетча):  python3 tools/gen_min_native.py fonts hud_font_mspeed   # даёт tools/fonts/Overpass-Medium-sq90.ttf
                            python3 tools/gen_speed_outline.py
 Нужен lv_font_conv (npm i -g lv_font_conv) и Pillow не нужен.
@@ -55,6 +55,11 @@ def main():
         tail = " /* id = 0 reserved */," if i == 0 else ("," if i < len(new_dsc) - 1 else "")
         lines.append("    {.bitmap_index = %d, .adv_w = %d, .box_w = %d, .box_h = %d, .ofs_x = %d, .ofs_y = %d}%s" % (st, adv, w, h, ox, oy, tail))
     s = s.replace(dsc_m.group(2), "\n".join(lines))
+    # строка выше на 2*PAD и базовая линия выше на PAD: раздутый глиф целиком внутри рамки надписи. Иначе при частичной
+    # отрисовке (прошивка рисует полосами только изменившиеся области) крайние строки обводки за рамкой не перерисовываются.
+    # Надпись обводки ставится на PAD px выше белой (SPD_OL_PAD в hud_mockup.c).
+    s = re.sub(r"\.line_height = (\d+),", lambda m: ".line_height = %d," % (int(m.group(1)) + 2 * PAD), s, count=1)
+    s = re.sub(r"\.base_line = (-?\d+),", lambda m: ".base_line = %d," % (int(m.group(1)) + PAD), s, count=1)
     s = s.replace("HUD_FONT_MSPEED", "HUD_FONT_MSPEED_OL").replace("hud_font_mspeed", "hud_font_mspeed_ol")
     # lv_font_conv называет шрифт по имени выходного файла (raw) — привести к hud_font_mspeed_ol
     s = re.sub(r"\braw\b", "hud_font_mspeed_ol", s)
