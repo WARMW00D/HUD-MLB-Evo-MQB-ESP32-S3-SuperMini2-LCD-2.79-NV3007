@@ -1,6 +1,6 @@
 # supermini_hud2
 
-[Русская версия: README.md](README.md) · Firmware version **1.1.0**
+[Русская версия: README.md](README.md) · Firmware version **1.4.0**
 
 > [!NOTE]
 > ### A reworked version of [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE)
@@ -89,10 +89,12 @@ Or with a compiler flag, without editing the file: `-DHUD_PLATFORM=HUD_PLATFORM_
 |---|---|---|
 | Bus | I-CAN | Comfort CAN (wire colors are on the wiring schematics) |
 | CAN speed | 500 kbit/s (`HUD_CAN_BITRATE_K`) | 500 kbit/s (`HUD_CAN_BITRATE_K`) |
-| ACC | frames `0x2A6` / `0x2A8` | `0x2A7` (active) and `0x30C` (set speed) |
+| ACC | frames `0x2A6` / `0x2A8` | `0x2A7` (active) and `0x30C` (set speed, 0.32 km/h step — same format as `0x2A6` on MLB-Evo) |
 | Pre sense (AWV) | `0x2A9` | not on the bus |
 | Instrument lighting dial | `0x64F` | a byte in `0x5F0` (Dimmung_01) |
 | Verified | on the A4 B9 with real logs | only on a pre-facelift Octavia A7 without Virtual Cockpit; some signals are hypotheses |
+
+Street names from navigation are abbreviated on the HUD (Russian street-type words, e.g. «улица» → «ул.», «проспект» → «пр-т»).
 
 Everything else (speed, BAP navigation, PSD / VZE signs, cameras, log, portal) is the same on both platforms.
 While there is no CAN data, the screen shows the "HUD VAG" splash with a second line, **MLB EVO** or **MQB** — so you can see at once which platform the firmware was built for.

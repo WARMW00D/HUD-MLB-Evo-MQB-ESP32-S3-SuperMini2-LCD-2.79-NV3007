@@ -280,6 +280,42 @@ static void bc_message(uint8_t fct, const uint8_t *p, uint16_t n)
     taskEXIT_CRITICAL(&s_mux);
 }
 
+/* Сокращения типов улиц: головное устройство отдаёт «Чароитовая улица» целиком, а строка на HUD узкая. */
+static const char *const k_abbr[][2] = {
+    { "улица", "ул." },   { "проспект", "пр-т" }, { "переулок", "пер." }, { "проезд", "пр-д" },
+    { "набережная", "наб." }, { "площадь", "пл." }, { "шоссе", "ш." },   { "бульвар", "б-р" },
+    { "аллея", "ал." },
+};
+
+static void street_abbrev(char *s)
+{
+    char out[64];
+    size_t o = 0;
+    const char *p = s;
+    while (*p && o < sizeof out - 1) {
+        const char *e = p;
+        while (*e && *e != ' ') e++;
+        size_t wl = (size_t)(e - p);
+        char w[24];
+        const char *rep = NULL;
+        if (wl > 0 && wl < sizeof w) {
+            memcpy(w, p, wl); w[wl] = 0;
+            if ((uint8_t)w[0] == 0xD0 && (uint8_t)w[1] >= 0x90 && (uint8_t)w[1] <= 0x9F) w[1] = (char)(w[1] + 0x20);          /* А-П -> а-п */
+            else if ((uint8_t)w[0] == 0xD0 && (uint8_t)w[1] >= 0xA0 && (uint8_t)w[1] <= 0xAF) { w[0] = (char)0xD1; w[1] = (char)(w[1] - 0x20); }   /* Р-Я -> р-я */
+            for (size_t i = 0; i < sizeof k_abbr / sizeof k_abbr[0]; i++)
+                if (strcmp(w, k_abbr[i][0]) == 0) { rep = k_abbr[i][1]; break; }
+        }
+        const char *src = rep ? rep : p;
+        size_t sl = rep ? strlen(rep) : wl;
+        if (o + sl >= sizeof out) break;
+        memcpy(out + o, src, sl); o += sl;
+        p = e;
+        if (*p == ' ') { if (o + 1 >= sizeof out) break; out[o++] = ' '; p++; }
+    }
+    out[o] = 0;
+    memcpy(s, out, o + 1);
+}
+
 /* Строка BAP: [длина][UTF-8][0]. Копирует в dst[64], возвращает длину (0 — пусто). */
 static int street_parse(const uint8_t *p, uint16_t n, char *dst)
 {
@@ -295,7 +331,8 @@ static int street_parse(const uint8_t *p, uint16_t n, char *dst)
     for (uint16_t i = 0; i < k; i++) dst[i] = p[1 + i] < 0x20 ? ' ' : (char)p[1 + i];
     while (k > 0 && dst[k - 1] == ' ') k--;
     dst[k] = 0;
-    return k;
+    street_abbrev(dst);
+    return (int)strlen(dst);
 }
 
 /* Вторая строка (SignPost) идёт сразу за первой. Длина первой может считаться с NUL или без — терпим оба варианта. */
@@ -370,7 +407,7 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
             }
         }
         break;
-    case 0x14: /* название улицы, короткое («ул. Ленина», как на указателях) */
+    case 0x14: /* название улицы (типы сокращаются в street_abbrev: «Ленина улица» -> «Ленина ул.») */
     {
         char tmp[64], sp[32];
         int a = street_parse(p, n, tmp);
@@ -559,9 +596,9 @@ void can_decode_frame(uint32_t id, bool ext, const uint8_t *data, uint8_t dlc)
         s_data.acc_status = sig(d, 58, 1) ? 3 : 2;           /* 3 активен, 2 ожидание */
         touch(S_ACC);
         break;
-    case 0x30C: { /* MQB: ACC_02 — заданная скорость 16|6: км/ч = 5·v+5, 63 = не задана (⚠️) */
-        uint32_t v = sig(d, 16, 6);
-        s_data.acc_set_raw = (v == 63) ? 0x3FF : (uint16_t)((((v * 5u + 5u) * 100u) + 16u) / 32u);   /* км/ч -> ×0.32 */
+    case 0x30C: { /* MQB: ACC_02 — заданная скорость 12|10, ×0.32 км/ч, 0x3FF = не задана
+                     (формула Karoq-CAN-HUD; сверено по логам Octavia/Passat: старое 16|6 = старшие 6 бит этого поля) */
+        s_data.acc_set_raw = sig(d, 12, 10);                  /* 0x3FF -> «не задана» (как на MLB) */
         /* Машина впереди: 45|2 — как в ACC_12 на A4 (в активном ACC на Октавии 94 % кадров = 1,
            остальные 0; ⚠️ по совпадению с раскладкой A4, не по документации). Зазор 37|3. */
         s_data.acc_object = sig(d, 45, 2);
