@@ -69,6 +69,11 @@ The HUD passively receives BAP `LaneGuidance` (Navigation_SD, function `0x18`, e
 
 When lane guidance is active, the lanes replace the usual distance at the bottom; the distance moves to a free part of the main maneuver arrow in the smaller street font. Recommended lanes are white and the others are grey, with outer non-recommended lanes fading out smoothly. Additional directions are drawn in grey underneath the main direction of the same lane, without resizing the arrows. `LaneGuidanceOnOff = 0`, route completion or a timeout restores the usual distance display.
 
+| | |
+|---|---|
+| ![Combined lane at an exit](docs/screens/08_lane_guidance_exit.png) | ![Combined directions of active and inactive lanes](docs/screens/09_lane_guidance_combined.png) |
+| Additional direction in grey underneath the white main direction | Both directions grey on the left, main direction white on the right |
+
 Test with all 16 arrays from the 2026-11-21 drive: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Flash log
