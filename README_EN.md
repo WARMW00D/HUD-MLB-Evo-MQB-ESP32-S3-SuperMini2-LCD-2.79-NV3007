@@ -1,6 +1,6 @@
 # supermini_hud2
 
-[Русская версия: README.md](README.md) · Firmware version **1.4.0**
+[Русская версия: README.md](README.md) · Firmware version **1.5.0**
 
 > [!NOTE]
 > ### A reworked version of [supermini_hud](../HUD-Audi-A4-B9-MLB-Evo-ESP32-S3-SuperMini-LCD-2.79-NV3007-BLE)
@@ -62,6 +62,14 @@ If a SignPost (direction, the second string of fct 0x14) comes with the street, 
 Maneuver_2 from BAP 0x17 ("and then turn right") is drawn as a small white arrow to the right of the distance to the maneuver. The images are the `nav_small` masks (`hud_nav_small.c`, 23 px high) taken from the Waveshare 3.49 project; the colour is set with `img_recolor`. "Follow the road" and route calculation are not shown as a preview; if there is not enough room on the right (up to the camera/sign, x = 152) the preview is hidden.
 
 SignPost decoding test: `gcc -Itests/stubs -Isupermini_hud2 tests/test_signpost.c supermini_hud2/can_decode.c && ./a.out`.
+
+## Lane guidance
+
+The HUD passively receives BAP `LaneGuidance` (Navigation_SD, function `0x18`, extended CAN `0x17333211`) and never transmits to the bus. Full arrays of up to 8 lanes, multiple recommended lanes and additional lane directions are supported.
+
+When lane guidance is active, the lanes replace the usual distance at the bottom; the distance moves to a free part of the main maneuver arrow in the smaller street font. Recommended lanes are white and the others are grey, with outer non-recommended lanes fading out smoothly. Additional directions are drawn in grey underneath the main direction of the same lane, without resizing the arrows. `LaneGuidanceOnOff = 0`, route completion or a timeout restores the usual distance display.
+
+Test with all 16 arrays from the 2026-11-21 drive: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Flash log
 

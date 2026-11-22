@@ -45,6 +45,7 @@ extern "C" {
 #define V_GPS    (1u << 27)  /* gps_lat/lon/fix/sat (NavPos_01 0x486, 5 Гц)   */
 #define V_HDG    (1u << 28)  /* gps_hdg_x10, gps_hdop_x10 (NavData_01 0x484, 5 Гц) */
 #define V_STREET (1u << 29)  /* street — название улицы (BAP Navigation_SD fct 0x14) */
+#define V_LANES  (1u << 30)  /* lane_count, lanes (BAP Navigation_SD fct 0x18)       */
 
 #define BLINK_L_TAKT  0x01
 #define BLINK_R_TAKT  0x02
@@ -61,6 +62,17 @@ extern "C" {
 /* LKA_PASSIVE = жёлтый (включён, но не держит), LKA_ACTIVE = зелёный,
    LKA_INTERVENE = предупреждение о выходе за линию */
 enum { LKA_OFF = 0, LKA_PASSIVE = 1, LKA_ACTIVE = 2, LKA_INTERVENE = 3 };
+
+typedef struct {
+    uint8_t direction;
+    uint8_t side_count;
+    uint8_t side[16];
+    uint8_t type;
+    uint8_t marking_left;
+    uint8_t marking_right;
+    uint8_t description;
+    uint8_t guidance;
+} HudLane;
 
 typedef struct {
     uint16_t speed_kmh;      /* Kombi_01.KBI_V_Digital                  */
@@ -143,6 +155,8 @@ typedef struct {
     uint8_t  dest_unit;
     uint8_t  tte_type;       /* 0 время в пути, 1 время прибытия        */
     uint8_t  tte_h, tte_min; /* BAP 0x16                                */
+    uint8_t  lane_count;     /* BAP 0x18: полосы слева направо, до 8    */
+    HudLane  lanes[8];
 
     char     signpost[32];   /* SignPost (направление), вторая строка fct 0x14; пустая — нет */
     char     street[64];     /* название улицы, UTF-8 (пустая строка — нет) */

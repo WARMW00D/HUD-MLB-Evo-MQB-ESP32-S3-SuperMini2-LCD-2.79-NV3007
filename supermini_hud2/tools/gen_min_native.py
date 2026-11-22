@@ -232,7 +232,7 @@ FONTS = [
 MENU = ("hud_font_menu", 20, "range:0x20-0x7E,0x401,0x410-0x44F,0x451", os.path.join(FD, "Montserrat-Bold.ttf"))
 # название улицы над стрелкой (узкий шрифт, кириллица + латиница) — перегенерируется только по имени:
 #   python3 tools/gen_min_native.py fonts hud_font_mstreet
-STREET = ("hud_font_mstreet", 18, "range:0x20-0x7E,0x401,0x410-0x44F,0x451", os.path.join(FD, "RobotoCondensed-Bold.ttf"))
+STREET = ("hud_font_mstreet", 18, "range:0x20-0x7E,0x401,0x410-0x44F,0x451,0x2026", os.path.join(FD, "RobotoCondensed-Bold.ttf"))
 # заставка «HUD VAG» при отсутствии CAN (крупная надпись и подпись с платформой) — перегенерируется только по имени:
 #   python3 tools/gen_min_native.py fonts hud_font_splash hud_font_splash_sub
 SPLASH = ("hud_font_splash", 72, "HUDVAG ", os.path.join(FD, "InterDisplay-Medium-sub.otf"))

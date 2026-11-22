@@ -11,5 +11,6 @@
 #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
 #define LV_USE_LINE 1
 #define LV_USE_IMG 1
+#define LV_USE_CANVAS 1
 #define LV_USE_LABEL 1
 #endif

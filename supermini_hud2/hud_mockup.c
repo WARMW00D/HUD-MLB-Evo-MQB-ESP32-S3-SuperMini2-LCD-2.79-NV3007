@@ -3,6 +3,8 @@
   ------------------------------------------------------------------------------
   Раскладка в нативных координатах панели 428x142 (утверждена по превью v13).
   Левая зона — стрелка манёвра (последний кадр с перспективой) и расстояние под ней;
+  при LaneGuidance внизу вместо расстояния — полосы, а расстояние уменьшено и перенесено
+  в свободную часть стрелки. Крайние нерекомендованные полосы плавно затухают.
   центр — скорость; под ней ОДИН знак по приоритету (камера > знак на дороге / ограничение с карты)
   и значок камеры с расстоянием; справа — иконка ACC / Lane Assist, значки Side Assist по бокам
   и заданная скорость под иконкой.
@@ -103,10 +105,17 @@ extern "C" {
 #define STREET_W     138     /* справа начинаются цифры «200» (x = 144)                           */
 #define PREV_GAP     7
 #define PREV_RIGHT   152     /* правее — камера / знак                                              */
+#define LANES_X      2
+#define LANES_Y      114
+#define LANES_W      142
+#define LANES_H      28
+#define DIST_OVERLAY_BASE 80
 #define STREET_SPEED 35      /* px/с бегущей строки                                               */
 
 /* ---------- хэндлы ---------- */
 static lv_obj_t *mn_arrow, *mn_arrow2, *mn_dist_num, *mn_dist_unit, *mn_calc, *mn_street;
+static lv_obj_t *mn_lanes;
+static uint8_t mn_lanes_buf[LV_CANVAS_BUF_SIZE_TRUE_COLOR_ALPHA(LANES_W, LANES_H)];
 static lv_obj_t *mn_spd, *mn_spd_unit, *mn_spd_ol;   /* mn_spd_ol — красная обводка цифр скорости при превышении: одна надпись шрифтом-маской */
 static lv_obj_t *mn_sign, *mn_sign_lbl, *mn_sign_end, *mn_sign_car_l, *mn_sign_car_r;
 static lv_obj_t *mn_cam_sq, *mn_cam_disc, *mn_cam_lbl, *mn_cam_eye, *mn_cam_dist;
@@ -577,6 +586,134 @@ static lv_obj_t *mn_disc(lv_obj_t *parent, int d, int ring, int x, int y)
     return o;
 }
 
+static void lane_blit(int x, int w, uint8_t dir, lv_color_t color)
+{
+    uint8_t sec = (uint8_t)(((dir + 8) >> 4) & 15);
+    const NavImg *ni = &nav_small.turn[sec];
+    int ox = x + (w - NAV_SMALL_W) / 2 + ni->x;
+    int oy = (LANES_H - NAV_SMALL_H) / 2 + ni->y;
+    const int psz = LV_IMG_PX_SIZE_ALPHA_BYTE;
+    for (lv_coord_t sy = 0; sy < ni->img->header.h; sy++) {
+        int dy = oy + sy;
+        if (dy < 0 || dy >= LANES_H) continue;
+        for (lv_coord_t sx = 0; sx < ni->img->header.w; sx++) {
+            int dx = ox + sx;
+            if (dx < 0 || dx >= LANES_W) continue;
+            lv_opa_t opa = lv_img_buf_get_px_alpha(ni->img, sx, sy);
+            if (opa == LV_OPA_TRANSP) continue;
+            int off = (dy * LANES_W + dx) * psz;
+            memcpy(mn_lanes_buf + off, &color, sizeof color);
+            mn_lanes_buf[off + psz - 1] = opa;
+        }
+    }
+}
+
+static uint32_t lanes_hash(const HudData *d)
+{
+    uint32_t h = 2166136261u ^ d->lane_count;
+    for (uint8_t i = 0; i < d->lane_count; i++) {
+        const HudLane *l = &d->lanes[i];
+        const uint8_t *p = (const uint8_t *)l;
+        for (size_t k = 0; k < sizeof *l; k++) {
+            h ^= p[k];
+            h *= 16777619u;
+        }
+    }
+    return h;
+}
+
+static void mn_lanes_update(const HudData *d, bool show)
+{
+    static uint32_t last_hash;
+    vis(mn_lanes, show);
+    if (!show) return;
+    uint32_t hash = lanes_hash(d);
+    if (hash == last_hash) return;
+    last_hash = hash;
+
+    lv_canvas_fill_bg(mn_lanes, lv_color_black(), LV_OPA_TRANSP);
+    int widths[8], xs[8];
+    bool is_active[8];
+    int total = 0, active_total = 0, inactive_total = 0, inactive_n = 0;
+    int first_active = -1, last_active = -1;
+    for (uint8_t i = 0; i < d->lane_count; i++) {
+        const HudLane *l = &d->lanes[i];
+        bool active = (l->guidance == 1 || l->guidance == 2) && l->type != 0x19;
+        is_active[i] = active;
+        widths[i] = active ? 24 : 18;
+        total += widths[i];
+        if (active) {
+            active_total += widths[i];
+            if (first_active < 0) first_active = i;
+            last_active = i;
+        } else {
+            inactive_total += widths[i];
+            inactive_n++;
+        }
+    }
+
+    if (total > LANES_W && inactive_n) {
+        int avail = LANES_W - active_total;
+        for (uint8_t i = 0; i < d->lane_count; i++) {
+            if (is_active[i]) continue;
+            int nw = avail > inactive_n * 6 ? widths[i] * avail / inactive_total : 6;
+            if (nw < 6) nw = 6;
+            total += nw - widths[i];
+            widths[i] = nw;
+        }
+    }
+    if (total > LANES_W) {
+        int old = total;
+        total = 0;
+        for (uint8_t i = 0; i < d->lane_count; i++) {
+            widths[i] = widths[i] * LANES_W / old;
+            if (widths[i] < 4) widths[i] = 4;
+            total += widths[i];
+        }
+    }
+    int x = (LANES_W - total) / 2;
+    for (uint8_t i = 0; i < d->lane_count; i++) {
+        const HudLane *l = &d->lanes[i];
+        xs[i] = x;
+        bool active = l->guidance == 1 || l->guidance == 2;
+        lv_color_t color = lv_color_hex(active ? 0xffffff : 0x777c85);
+        if (l->type != 0x19) {
+            uint8_t dirs[3] = { 0, 0, 0 };
+            uint8_t n = 0;
+            for (uint8_t k = 0; k < l->side_count && n < 2; k++) dirs[n++] = l->side[k];
+            dirs[n++] = l->direction;
+            for (uint8_t k = 0; k < n; k++) {
+                if (dirs[k] == 0xFF) continue;
+                lane_blit(x, widths[i], dirs[k], k + 1 == n ? color : lv_color_hex(0x777c85));
+            }
+        }
+        x += widths[i];
+    }
+
+    const int psz = LV_IMG_PX_SIZE_ALPHA_BYTE;
+    if (first_active > 0) {
+        int end = xs[first_active];
+        for (int px = 0; px < end; px++) {
+            uint8_t opa = end > 1 ? (uint8_t)(255 * px / (end - 1)) : 255;
+            for (int py = 0; py < LANES_H; py++) {
+                int off = (py * LANES_W + px) * psz + psz - 1;
+                mn_lanes_buf[off] = (uint8_t)(mn_lanes_buf[off] * opa / 255);
+            }
+        }
+    }
+    if (last_active >= 0 && last_active + 1 < d->lane_count) {
+        int start = xs[last_active] + widths[last_active];
+        for (int px = start; px < LANES_W; px++) {
+            uint8_t opa = start < LANES_W - 1 ? (uint8_t)(255 * (LANES_W - 1 - px) / (LANES_W - 1 - start)) : 255;
+            for (int py = 0; py < LANES_H; py++) {
+                int off = (py * LANES_W + px) * psz + psz - 1;
+                mn_lanes_buf[off] = (uint8_t)(mn_lanes_buf[off] * opa / 255);
+            }
+        }
+    }
+    lv_obj_invalidate(mn_lanes);
+}
+
 static void mn_build(lv_obj_t *scr)
 {
     /* левая зона: стрелка манёвра и расстояние */
@@ -588,6 +725,11 @@ static void mn_build(lv_obj_t *scr)
     lv_obj_set_style_img_recolor(mn_arrow2, lv_color_white(), 0);
     lv_obj_set_style_img_recolor_opa(mn_arrow2, LV_OPA_COVER, 0);
     lv_obj_add_flag(mn_arrow2, LV_OBJ_FLAG_HIDDEN);
+    mn_lanes = lv_canvas_create(scr);
+    lv_canvas_set_buffer(mn_lanes, mn_lanes_buf, LANES_W, LANES_H, LV_IMG_CF_TRUE_COLOR_ALPHA);
+    lv_canvas_fill_bg(mn_lanes, lv_color_black(), LV_OPA_TRANSP);
+    lv_obj_set_pos(mn_lanes, LANES_X, LANES_Y);
+    lv_obj_add_flag(mn_lanes, LV_OBJ_FLAG_HIDDEN);
     mn_dist_num  = mn_label(scr, &hud_font_mdist, 0xffffff);
     mn_dist_unit = mn_label(scr, &hud_font_munit20, C_UNIT_SMALL);
     mn_calc      = mn_label(scr, &hud_font_mdist, C_GRAY);
@@ -1030,6 +1172,8 @@ static void hud_update_cb(lv_timer_t *t)
         }
         last = ni;
         vis(mn_arrow, show);
+        bool lanes_v = show && (d.valid & V_LANES) && d.lane_count > 0;
+        mn_lanes_update(&d, lanes_v);
         static const NavImg *last2 = NULL;
         bool dv = show && (d.valid & V_MDIST);
         if (dv) {
@@ -1041,19 +1185,31 @@ static void hud_update_cb(lv_timer_t *t)
             snprintf(num, sizeof num, "%.*s", k, s);
             snprintf(unit, sizeof unit, "%s", s + k);
             int left;
-            int w = mn_digits(mn_dist_num, &hud_font_mdist, num, CX_LEFT, DIST_BASE, &left);
-            mn_text_at(mn_dist_unit, &hud_font_munit20, unit, left + w + 5, DIST_BASE);
-            /* превью второго манёвра — справа от расстояния (не для «следуй по дороге» и расчёта) */
-            const NavImg *n2 = (d.man2_main != 0x0B) ? nav_pick(&nav_small, d.man2_main, d.man2_dir) : NULL;
-            int px = left + w + 5 + mn_text_w(&hud_font_munit20, unit) + PREV_GAP;
-            if (n2 && px + n2->img->header.w <= PREV_RIGHT) {
-                if (n2 != last2) {
-                    lv_img_set_src(mn_arrow2, n2->img);
-                    last2 = n2;
-                }
-                lv_obj_set_pos(mn_arrow2, px, DIST_BASE - NAV_SMALL_H + n2->y);
-                vis(mn_arrow2, true);
-            } else vis(mn_arrow2, false);
+            if (lanes_v) {
+                set_font(mn_dist_num, &hud_font_mstreet);
+                set_font(mn_dist_unit, &hud_font_mstreet);
+                int uw = mn_text_w(&hud_font_mstreet, unit);
+                int cx = d.man_dir > 0x80 ? 32 : 110;
+                int w = mn_digits(mn_dist_num, &hud_font_mstreet, num, cx - (4 + uw) / 2, DIST_OVERLAY_BASE, &left);
+                mn_text_at(mn_dist_unit, &hud_font_mstreet, unit, left + w + 4, DIST_OVERLAY_BASE);
+                vis(mn_arrow2, false);
+            } else {
+                set_font(mn_dist_num, &hud_font_mdist);
+                set_font(mn_dist_unit, &hud_font_munit20);
+                int w = mn_digits(mn_dist_num, &hud_font_mdist, num, CX_LEFT, DIST_BASE, &left);
+                mn_text_at(mn_dist_unit, &hud_font_munit20, unit, left + w + 5, DIST_BASE);
+                /* превью второго манёвра — справа от расстояния (не для «следуй по дороге» и расчёта) */
+                const NavImg *n2 = (d.man2_main != 0x0B) ? nav_pick(&nav_small, d.man2_main, d.man2_dir) : NULL;
+                int px = left + w + 5 + mn_text_w(&hud_font_munit20, unit) + PREV_GAP;
+                if (n2 && px + n2->img->header.w <= PREV_RIGHT) {
+                    if (n2 != last2) {
+                        lv_img_set_src(mn_arrow2, n2->img);
+                        last2 = n2;
+                    }
+                    lv_obj_set_pos(mn_arrow2, px, DIST_BASE - NAV_SMALL_H + n2->y);
+                    vis(mn_arrow2, true);
+                } else vis(mn_arrow2, false);
+            }
         } else {
             vis(mn_dist_num, false);
             vis(mn_dist_unit, false);

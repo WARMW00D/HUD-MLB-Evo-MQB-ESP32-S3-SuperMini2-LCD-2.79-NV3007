@@ -43,9 +43,9 @@
 #define TO_STREET  0x7FFFFFFF   /* название улицы живёт до конца маневра (сбрасывается по RG_Status), а не по таймеру */
 #define TO_WHEEL   3000    /* BCM1_04: раз в 1 с в покое, 50-60 мс при вращении */   /* BAP_BC: 0x18 раз в ~4 с при изменении, остальное — heartbeat ~25 с */
 
-enum { S_SPEED, S_ACC, S_GEAR, S_BLINK, S_SIGN, S_MAN, S_MDIST, S_DEST, S_TTE, S_LKA, S_DOORS, S_HOOD, S_GNUM, S_JAM, S_LIM, S_AWV, S_DIM, S_ACCEL, S_SPDACC, S_BRAKE, S_FUEL, S_RESERVED21, S_BC, S_BCFUEL, S_RLS, S_WHEEL, S_SWA, S_GPS, S_HDG, S_STREET, S_COUNT };
+enum { S_SPEED, S_ACC, S_GEAR, S_BLINK, S_SIGN, S_MAN, S_MDIST, S_DEST, S_TTE, S_LKA, S_DOORS, S_HOOD, S_GNUM, S_JAM, S_LIM, S_AWV, S_DIM, S_ACCEL, S_SPDACC, S_BRAKE, S_FUEL, S_RESERVED21, S_BC, S_BCFUEL, S_RLS, S_WHEEL, S_SWA, S_GPS, S_HDG, S_STREET, S_LANES, S_COUNT };
 static const uint32_t s_timeout[S_COUNT] = {
-    TO_SPEED, TO_ACC, TO_GEAR, TO_BLINK, TO_SIGN, TO_NAV, TO_NAV, TO_NAV, TO_NAV, TO_LKA, TO_DOORS, TO_HOOD, TO_GNUM, TO_JAM, TO_LIM, TO_AWV, TO_DIM, TO_ACCEL, TO_SPDACC, TO_BRAKE, TO_FUEL, TO_RESERVED21, TO_BC, TO_BC, TO_RLS, TO_WHEEL, TO_SWA, TO_GPS, TO_GPS, TO_STREET
+    TO_SPEED, TO_ACC, TO_GEAR, TO_BLINK, TO_SIGN, TO_NAV, TO_NAV, TO_NAV, TO_NAV, TO_LKA, TO_DOORS, TO_HOOD, TO_GNUM, TO_JAM, TO_LIM, TO_AWV, TO_DIM, TO_ACCEL, TO_SPDACC, TO_BRAKE, TO_FUEL, TO_RESERVED21, TO_BC, TO_BC, TO_RLS, TO_WHEEL, TO_SWA, TO_GPS, TO_GPS, TO_STREET, TO_NAV
 };
 
 static HudData      s_data;
@@ -355,6 +355,33 @@ static int signpost_parse(const uint8_t *p, uint16_t n, char *dst)
     return k;
 }
 
+static bool lane_status_parse(const uint8_t *p, uint16_t n, HudLane *lanes, uint8_t *lane_count)
+{
+    if (n < 5 || p[2] != 0 || p[3] != 0) return false;
+    uint8_t count = p[4];
+    if (count == 0 || count > 8) return false;
+
+    uint16_t off = 5;
+    for (uint8_t i = 0; i < count; i++) {
+        if (off + 2 > n) return false;
+        HudLane lane = { 0 };
+        lane.direction = p[off++];
+        lane.side_count = p[off++];
+        if (lane.side_count > sizeof lane.side || off + lane.side_count + 3 > n) return false;
+        memcpy(lane.side, p + off, lane.side_count);
+        off += lane.side_count;
+        lane.type = p[off++];
+        lane.marking_left = p[off] >> 4;
+        lane.marking_right = p[off++] & 0x0F;
+        lane.description = p[off] >> 4;
+        lane.guidance = p[off++] & 0x0F;
+        lanes[i] = lane;
+    }
+    if (off != n) return false;
+    *lane_count = count;
+    return true;
+}
+
 static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
 {
     uint8_t opcode = (hdr >> 12) & 7;
@@ -369,7 +396,10 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
     case 0x11: /* RG_Status */
         if (n >= 1) {
             s_data.rg_active = p[0]; touch(S_MAN);
-            if (p[0] != 1) { s_data.street[0] = 0; s_data.signpost[0] = 0; s_last[S_STREET] = 0; }   /* маршрут закончился — название улицы убрать */
+            if (p[0] != 1) {
+                s_data.street[0] = 0; s_data.signpost[0] = 0; s_last[S_STREET] = 0;
+                s_data.lane_count = 0; memset(s_data.lanes, 0, sizeof s_data.lanes); s_last[S_LANES] = 0;
+            }
         }
         break;
     case 0x12: /* DistanceToNextManeuver */
@@ -439,6 +469,31 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
             memset(s_data.man_raw, 0, sizeof s_data.man_raw);
             memcpy(s_data.man_raw, p, n < sizeof s_data.man_raw ? n : sizeof s_data.man_raw);
             touch(S_MAN);
+        }
+        break;
+    case 0x18: /* LaneGuidance */
+        if (opcode == 3 && n >= 1) {
+            if (p[0] == 0) {
+                s_data.lane_count = 0;
+                memset(s_data.lanes, 0, sizeof s_data.lanes);
+                s_last[S_LANES] = 0;
+            } else if (p[0] == 1 && s_data.lane_count) {
+                touch(S_LANES);
+            }
+        } else if (opcode == 4 && n >= 5) {
+            if (p[1] == 0) {
+                s_data.lane_count = 0;
+                memset(s_data.lanes, 0, sizeof s_data.lanes);
+                s_last[S_LANES] = 0;
+            } else if (p[1] == 1) {
+                HudLane lanes[8] = {{ 0 }};
+                uint8_t count = 0;
+                if (lane_status_parse(p, n, lanes, &count)) {
+                    memcpy(s_data.lanes, lanes, sizeof lanes);
+                    s_data.lane_count = count;
+                    touch(S_LANES);
+                }
+            }
         }
         break;
     default:
