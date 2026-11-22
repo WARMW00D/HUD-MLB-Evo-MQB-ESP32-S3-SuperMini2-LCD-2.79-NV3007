@@ -63,8 +63,15 @@ extern "C" {
    LKA_INTERVENE = предупреждение о выходе за линию */
 enum { LKA_OFF = 0, LKA_PASSIVE = 1, LKA_ACTIVE = 2, LKA_INTERVENE = 3 };
 
+#define HUD_MAX_LANES 16
+
 typedef struct {
     uint8_t direction;
+    uint8_t direction2;     /* LaneGuidance2: второе направление, 0xFF — нет */
+    uint8_t guidance2;
+    uint8_t focus;          /* LaneGuidance2: 0 unknown, 1 current, 2 successor */
+    uint8_t attributes;
+    uint8_t hidden;
     uint8_t side_count;
     uint8_t side[16];
     uint8_t type;
@@ -155,8 +162,8 @@ typedef struct {
     uint8_t  dest_unit;
     uint8_t  tte_type;       /* 0 время в пути, 1 время прибытия        */
     uint8_t  tte_h, tte_min; /* BAP 0x16                                */
-    uint8_t  lane_count;     /* BAP 0x18: полосы слева направо, до 8    */
-    HudLane  lanes[8];
+    uint8_t  lane_count;     /* BAP 0x18 до 8 / 0x3D до 16, слева направо */
+    HudLane  lanes[HUD_MAX_LANES];
 
     char     signpost[32];   /* SignPost (направление), вторая строка fct 0x14; пустая — нет */
     char     street[64];     /* название улицы, UTF-8 (пустая строка — нет) */

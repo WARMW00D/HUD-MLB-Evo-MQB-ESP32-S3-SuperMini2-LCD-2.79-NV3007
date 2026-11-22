@@ -65,7 +65,9 @@ SignPost decoding test: `gcc -Itests/stubs -Isupermini_hud2 tests/test_signpost.
 
 ## Lane guidance
 
-The HUD passively receives BAP `LaneGuidance` (Navigation_SD, function `0x18`, extended CAN `0x17333211`) and never transmits to the bus. Full arrays of up to 8 lanes, multiple recommended lanes and additional lane directions are supported.
+The HUD passively receives BAP `LaneGuidance` (Navigation_SD, function `0x18`, up to 8 lanes) and `LaneGuidance2` (function `0x3D`, up to 16 lanes) over extended CAN `0x17333211` and never transmits to the bus. Full arrays, multiple recommended lanes and additional directions are supported. The `0x3D` decoder handles records with and without `Pos`, `LaneFocus`, two directions with separate recommendations, and lane attributes.
+
+Only `0x18` appeared in the recorded drives; its 16 real arrays are covered by the test. No real `0x3D` frames have been captured yet, so that decoder is tested with synthetic Function Catalogue messages (section 51.7), including 16 lanes, 16 sidestreets per lane and a payload larger than 256 bytes.
 
 When lane guidance is active, the lanes replace the usual distance at the bottom; the distance moves to a free part of the main maneuver arrow in the smaller street font. Recommended lanes are white and the others are grey, with outer non-recommended lanes fading out smoothly. Additional directions are drawn in grey underneath the main direction of the same lane, without resizing the arrows. `LaneGuidanceOnOff = 0`, route completion or a timeout restores the usual distance display.
 
@@ -74,7 +76,7 @@ When lane guidance is active, the lanes replace the usual distance at the bottom
 | ![Combined lane at an exit](docs/screens/08_lane_guidance_exit.png) | ![Combined directions of active and inactive lanes](docs/screens/09_lane_guidance_combined.png) |
 | Additional direction in grey underneath the white main direction | Both directions grey on the left, main direction white on the right |
 
-Test with all 16 arrays from the 2026-11-21 drive: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
+Test with 16 real `0x18` arrays and synthetic `0x3D` arrays: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Flash log
 

@@ -237,7 +237,7 @@ static void fuel_update(uint16_t kvs)
 
 /* ---------- BAP Navigation_SD ---------- */
 #define BAP_LSG_NAV   0x32
-#define BAP_BUF_SIZE  256
+#define BAP_BUF_SIZE  512
 
 typedef struct {
     bool     busy;
@@ -365,16 +365,57 @@ static bool lane_status_parse(const uint8_t *p, uint16_t n, HudLane *lanes, uint
     for (uint8_t i = 0; i < count; i++) {
         if (off + 2 > n) return false;
         HudLane lane = { 0 };
+        lane.direction2 = 0xFF;
         lane.direction = p[off++];
         lane.side_count = p[off++];
         if (lane.side_count > sizeof lane.side || off + lane.side_count + 3 > n) return false;
         memcpy(lane.side, p + off, lane.side_count);
         off += lane.side_count;
         lane.type = p[off++];
+        lane.hidden = lane.type == 0x19;
         lane.marking_left = p[off] >> 4;
         lane.marking_right = p[off++] & 0x0F;
         lane.description = p[off] >> 4;
         lane.guidance = p[off++] & 0x0F;
+        lanes[i] = lane;
+    }
+    if (off != n) return false;
+    *lane_count = count;
+    return true;
+}
+
+static bool lane2_status_parse(const uint8_t *p, uint16_t n, HudLane *lanes, uint8_t *lane_count)
+{
+    if (n < 7 || (p[4] & 0x0F) != 0 || p[5] != 0) return false;
+    uint8_t mode = p[4] >> 4;
+    if (mode & ~0x04) return false;                 /* только forward/full; Pos опционален */
+    uint8_t count = p[6];
+    if (count == 0 || count > HUD_MAX_LANES) return false;
+
+    uint16_t off = 7;
+    for (uint8_t i = 0; i < count; i++) {
+        if ((mode & 0x04) && (off >= n || p[off++] != i)) return false;
+        if (off + 5 > n) return false;
+        HudLane lane = { 0 };
+        lane.focus = p[off++];
+        if (lane.focus > 2) return false;
+        lane.direction = p[off++];
+        lane.direction2 = p[off++];
+        uint8_t g1 = p[off] & 0x0F, g2 = p[off++] >> 4;
+        if (g1 > 2) g1 = 0;
+        if (g2 > 2) g2 = 0;
+        lane.guidance = g1 > g2 ? g1 : g2;
+        lane.guidance2 = g2;
+        lane.side_count = p[off++];
+        if (lane.side_count > sizeof lane.side || off + lane.side_count + 4 > n) return false;
+        memcpy(lane.side, p + off, lane.side_count);
+        off += lane.side_count;
+        lane.type = p[off++];
+        lane.hidden = lane.type == 0x17;
+        lane.marking_left = p[off] >> 4;
+        lane.marking_right = p[off++] & 0x0F;
+        lane.attributes = p[off++];
+        lane.description = p[off++];
         lanes[i] = lane;
     }
     if (off != n) return false;
@@ -486,9 +527,34 @@ static void bap_message(uint16_t hdr, const uint8_t *p, uint16_t n)
                 memset(s_data.lanes, 0, sizeof s_data.lanes);
                 s_last[S_LANES] = 0;
             } else if (p[1] == 1) {
-                HudLane lanes[8] = {{ 0 }};
+                HudLane lanes[HUD_MAX_LANES] = {{ 0 }};
                 uint8_t count = 0;
                 if (lane_status_parse(p, n, lanes, &count)) {
+                    memcpy(s_data.lanes, lanes, sizeof lanes);
+                    s_data.lane_count = count;
+                    touch(S_LANES);
+                }
+            }
+        }
+        break;
+    case 0x3D: /* LaneGuidance2: до 16 полос, два направления на полосу */
+        if (opcode == 3 && n >= 1) {
+            if (p[0] == 0) {
+                s_data.lane_count = 0;
+                memset(s_data.lanes, 0, sizeof s_data.lanes);
+                s_last[S_LANES] = 0;
+            } else if (p[0] == 1 && s_data.lane_count) {
+                touch(S_LANES);
+            }
+        } else if (opcode == 4 && n >= 2) {
+            if (p[1] == 0) {
+                s_data.lane_count = 0;
+                memset(s_data.lanes, 0, sizeof s_data.lanes);
+                s_last[S_LANES] = 0;
+            } else if (p[1] == 1) {
+                HudLane lanes[HUD_MAX_LANES] = {{ 0 }};
+                uint8_t count = 0;
+                if (lane2_status_parse(p, n, lanes, &count)) {
                     memcpy(s_data.lanes, lanes, sizeof lanes);
                     s_data.lane_count = count;
                     touch(S_LANES);

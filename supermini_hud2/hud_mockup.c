@@ -632,13 +632,13 @@ static void mn_lanes_update(const HudData *d, bool show)
     last_hash = hash;
 
     lv_canvas_fill_bg(mn_lanes, lv_color_black(), LV_OPA_TRANSP);
-    int widths[8], xs[8];
-    bool is_active[8];
+    int widths[HUD_MAX_LANES], xs[HUD_MAX_LANES];
+    bool is_active[HUD_MAX_LANES];
     int total = 0, active_total = 0, inactive_total = 0, inactive_n = 0;
     int first_active = -1, last_active = -1;
     for (uint8_t i = 0; i < d->lane_count; i++) {
         const HudLane *l = &d->lanes[i];
-        bool active = (l->guidance == 1 || l->guidance == 2) && l->type != 0x19;
+        bool active = (l->guidance == 1 || l->guidance == 2) && !l->hidden;
         is_active[i] = active;
         widths[i] = active ? 24 : 18;
         total += widths[i];
@@ -677,10 +677,11 @@ static void mn_lanes_update(const HudData *d, bool show)
         xs[i] = x;
         bool active = l->guidance == 1 || l->guidance == 2;
         lv_color_t color = lv_color_hex(active ? 0xffffff : 0x777c85);
-        if (l->type != 0x19) {
-            uint8_t dirs[3] = { 0, 0, 0 };
+        if (!l->hidden) {
+            uint8_t dirs[18];
             uint8_t n = 0;
-            for (uint8_t k = 0; k < l->side_count && n < 2; k++) dirs[n++] = l->side[k];
+            if (l->direction2 != 0xFF) dirs[n++] = l->direction2;
+            for (uint8_t k = 0; k < l->side_count; k++) dirs[n++] = l->side[k];
             dirs[n++] = l->direction;
             for (uint8_t k = 0; k < n; k++) {
                 if (dirs[k] == 0xFF) continue;
