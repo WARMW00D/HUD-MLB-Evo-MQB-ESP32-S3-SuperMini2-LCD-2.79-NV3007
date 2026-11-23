@@ -51,6 +51,12 @@ Transmitter power is limited: no more than 10 dBm (`HUD_PORTAL_TX_QDBM`, real ha
 The page offers: language, units, PSD/VZE signs, street name above the arrow (on/off), overspeed tolerance, cameras (show, beep), volume, photoresistor (with calibration),
 `cams.bin` upload, log download (`/logs.tar`) and OTA firmware update (the application `.bin`).
 
+## Speed cameras
+
+GPS position and heading come from the car's CAN (NavPos_01 `0x486`, NavData_01 `0x484`, 5 Hz). The `cams.bin` database (CAM1 format) lives at address 0 of the W25Q128 flash and is loaded into PSRAM at start-up; `cam_alert` finds the nearest camera ahead by binary search, no index file is needed. The database is uploaded from the portal page; after an upload the HUD verifies the flash contents against the SHA-256 of the uploaded file. The last 2 MB of flash are reserved for the log, so the maximum database size is the chip size minus 2 MB.
+
+The camera sign (yellow square, limit disc, camera icon, distance in the large `hud_font_mcam` font) and the speed-digit colouring follow the Waveshare design. The warning window is 12 seconds of travel, clamped to 200–600 m; tolerances are 22 m off the driving axis and 35° of camera direction; below 15 km/h or with HDOP worse than 4.0 cameras are not shown so that a noisy GNSS heading cannot mislead (`HUD_CAM_AHEAD_S`, `HUD_CAM_MIN_M`, `HUD_CAM_MAX_M`, `HUD_CAM_CROSS_M`, `HUD_CAM_DIR_DEG`, `HUD_CAM_MIN_SPEED_KMH`, `HUD_CAM_MAX_HDOP_X10` in `hud_config.h`). During a brief reception drop-out the last camera is held for up to 1.5 s and the distance keeps shrinking. If the speed is over the camera limit, a single low beep sounds when the camera appears (200 Hz, `kCam` in `hud_sound.cpp`). Camera display and the beep are toggled on the portal page ("Show cameras", "Camera beep"), the settings are stored in NVS; camera types are filtered by the `HUD_CAM_TYPE_MASK` mask.
+
 ## Street name
 
 Above the maneuver arrow the HUD shows the street from BAP Navigation (fct 0x14 only — the short form used on road signs, e.g. "ул. Ленина"). If the name does not fit the 138 px window it scrolls around as a marquee. The name stays until the maneuver is over: while route guidance is active (RG_Status = 1) it stays on screen until a new one arrives; when the route ends it disappears. It can be switched on/off on the portal page ("Street name above the arrow"); on by default (`HUD_STREET_ON`). The font `hud_font_mstreet` (Roboto Condensed Bold 18, Cyrillic + Latin) is generated with `python3 tools/gen_min_native.py fonts hud_font_mstreet`.
