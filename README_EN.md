@@ -76,6 +76,8 @@ When lane guidance is active, the lanes replace the usual distance at the bottom
 | ![Combined lane at an exit](docs/screens/08_lane_guidance_exit.png) | ![Combined directions of active and inactive lanes](docs/screens/09_lane_guidance_combined.png) |
 | Additional direction in grey underneath the white main direction | Both directions grey on the left, main direction white on the right |
 
+Details of direction overlay and the shared mask baseline (in Russian): [docs/LANE_GUIDANCE.md](docs/LANE_GUIDANCE.md).
+
 Test with 16 real `0x18` arrays and synthetic `0x3D` arrays: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Flash log

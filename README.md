@@ -76,6 +76,8 @@ HUD пассивно принимает BAP `LaneGuidance` (Navigation_SD, фу�
 | ![Совмещённая полоса при выезде](docs/screens/08_lane_guidance_exit.png) | ![Совмещённые направления активной и неактивной полос](docs/screens/09_lane_guidance_combined.png) |
 | Дополнительное направление серым под белым основным | Слева оба направления серые, справа основное белое |
 
+Подробно о наложении направлений и общей базовой точке масок: [docs/LANE_GUIDANCE.md](docs/LANE_GUIDANCE.md).
+
 Проверка 16 реальных массивов `0x18` и синтетических массивов `0x3D`: `gcc -Itests/stubs -Isupermini_hud2 tests/test_lane_guidance.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Журнал во флеше
