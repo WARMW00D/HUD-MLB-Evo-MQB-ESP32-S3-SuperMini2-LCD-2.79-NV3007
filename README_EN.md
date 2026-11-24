@@ -67,6 +67,8 @@ If a SignPost (direction, the second string of fct 0x14) comes with the street, 
 
 Maneuver_2 from BAP 0x17 ("and then turn right") is drawn as a small white arrow to the right of the distance to the maneuver. The images are the `nav_small` masks (`hud_nav_small.c`, 23 px high) taken from the Waveshare 3.49 project; the colour is set with `img_recolor`. "Follow the road" and route calculation are not shown as a preview; if there is not enough room on the right (up to the camera/sign, x = 152) the preview is hidden.
 
+BAP maneuver and direction code reference (in Russian): [docs/NAV_MANEUVER_CODES.md](docs/NAV_MANEUVER_CODES.md).
+
 SignPost decoding test: `gcc -Itests/stubs -Isupermini_hud2 tests/test_signpost.c supermini_hud2/can_decode.c && ./a.out`.
 
 ## Lane guidance
